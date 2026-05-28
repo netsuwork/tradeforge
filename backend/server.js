@@ -7,22 +7,14 @@ require('dotenv').config();
 
 const app = express();
 
-// =========================
-// MIDDLEWARE
-// =========================
+app.use(cors({
+  origin: '*'
+}));
 
-app.use(cors());
 app.use(express.json());
 
-// =========================
-// DATABASE
-// =========================
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+app.get('/', (req, res) => {
+  res.send('TradeForge API is running');
 });
 
 // =========================
