@@ -7,9 +7,9 @@ require('dotenv').config();
 
 const app = express();
 
-// =========================
+// ======================
 // MIDDLEWARE
-// =========================
+// ======================
 
 app.use(cors({
   origin: '*'
@@ -17,9 +17,9 @@ app.use(cors({
 
 app.use(express.json());
 
-// =========================
+// ======================
 // DATABASE
-// =========================
+// ======================
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -28,52 +28,56 @@ const pool = new Pool({
   }
 });
 
-// =========================
-// ROOT ROUTE
-// =========================
+// ======================
+// TEST ROUTE
+// ======================
 
 app.get('/', (req, res) => {
   res.send('TradeForge API is running');
 });
 
-// =========================
-// INIT DATABASE
-// =========================
+// ======================
+// RESET DATABASE
+// ======================
 
-async function initDB() {
+async function resetDatabase() {
 
   try {
 
-    // DROP OLD TABLE
+    console.log('Resetting database...');
+
+    // DELETE OLD TABLE COMPLETELY
     await pool.query(`
-      DROP TABLE IF EXISTS users;
+      DROP TABLE IF EXISTS users CASCADE;
     `);
+
+    console.log('Old users table deleted');
 
     // CREATE NEW TABLE
     await pool.query(`
       CREATE TABLE users (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    console.log('Database initialized successfully');
+    console.log('New users table created');
 
   } catch (err) {
 
-    console.error('DATABASE INIT ERROR:');
+    console.error('DATABASE RESET ERROR');
     console.error(err);
   }
 }
 
-initDB();
+resetDatabase();
 
-// =========================
+// ======================
 // SIGNUP
-// =========================
+// ======================
 
 app.post('/signup', async (req, res) => {
 
@@ -84,23 +88,16 @@ app.post('/signup', async (req, res) => {
     if (!name || !email || !password) {
 
       return res.status(400).json({
-        error: 'All fields required'
+        error: 'All fields are required'
       });
     }
 
-    if (password.length < 6) {
-
-      return res.status(400).json({
-        error: 'Password must be at least 6 characters'
-      });
-    }
-
-    const existingUser = await pool.query(
+    const existing = await pool.query(
       'SELECT * FROM users WHERE email = $1',
       [email]
     );
 
-    if (existingUser.rows.length > 0) {
+    if (existing.rows.length > 0) {
 
       return res.status(400).json({
         error: 'Email already exists'
@@ -110,7 +107,11 @@ app.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
+      `
+      INSERT INTO users (name, email, password)
+      VALUES ($1, $2, $3)
+      RETURNING id, name, email
+      `,
       [name, email, hashedPassword]
     );
 
@@ -135,7 +136,7 @@ app.post('/signup', async (req, res) => {
 
   } catch (err) {
 
-    console.error('SIGNUP ERROR:');
+    console.error('SIGNUP ERROR');
     console.error(err);
 
     res.status(500).json({
@@ -144,9 +145,9 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-// =========================
+// ======================
 // LOGIN
-// =========================
+// ======================
 
 app.post('/login', async (req, res) => {
 
@@ -168,12 +169,12 @@ app.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
-    const validPassword = await bcrypt.compare(
+    const valid = await bcrypt.compare(
       password,
       user.password
     );
 
-    if (!validPassword) {
+    if (!valid) {
 
       return res.status(400).json({
         error: 'Invalid credentials'
@@ -203,7 +204,7 @@ app.post('/login', async (req, res) => {
 
   } catch (err) {
 
-    console.error('LOGIN ERROR:');
+    console.error('LOGIN ERROR');
     console.error(err);
 
     res.status(500).json({
@@ -212,11 +213,11 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// =========================
+// ======================
 // START SERVER
-// =========================
+// ======================
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
