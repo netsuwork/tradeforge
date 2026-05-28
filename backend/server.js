@@ -18,13 +18,6 @@ app.use(cors({
 app.use(express.json());
 
 // =========================
-// DEBUG ENV
-// =========================
-
-console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
-
-// =========================
 // DATABASE
 // =========================
 
@@ -51,8 +44,14 @@ async function initDB() {
 
   try {
 
+    // DROP OLD TABLE
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      DROP TABLE IF EXISTS users;
+    `);
+
+    // CREATE NEW TABLE
+    await pool.query(`
+      CREATE TABLE users (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
@@ -61,7 +60,7 @@ async function initDB() {
       );
     `);
 
-    console.log('Database initialized');
+    console.log('Database initialized successfully');
 
   } catch (err) {
 
@@ -80,16 +79,19 @@ app.post('/signup', async (req, res) => {
 
   try {
 
-    console.log('Signup request received');
-
     const { name, email, password } = req.body;
-
-    console.log(name, email);
 
     if (!name || !email || !password) {
 
       return res.status(400).json({
         error: 'All fields required'
+      });
+    }
+
+    if (password.length < 6) {
+
+      return res.status(400).json({
+        error: 'Password must be at least 6 characters'
       });
     }
 
