@@ -7,14 +7,25 @@ require('dotenv').config();
 
 const app = express();
 
+// =========================
+// MIDDLEWARE
+// =========================
+
 app.use(cors({
   origin: '*'
 }));
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('TradeForge API is running');
+// =========================
+// DATABASE CONNECTION
+// =========================
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // =========================
@@ -30,7 +41,9 @@ app.get('/', (req, res) => {
 // =========================
 
 async function initDB() {
+
   try {
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -42,7 +55,9 @@ async function initDB() {
     `);
 
     console.log('Database initialized');
+
   } catch (err) {
+
     console.error('Database init error:', err);
   }
 }
@@ -50,20 +65,24 @@ async function initDB() {
 initDB();
 
 // =========================
-// SIGNUP
+// SIGNUP ROUTE
 // =========================
 
 app.post('/signup', async (req, res) => {
+
   try {
+
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
+
       return res.status(400).json({
         error: 'All fields are required'
       });
     }
 
     if (password.length < 6) {
+
       return res.status(400).json({
         error: 'Password must be at least 6 characters'
       });
@@ -75,6 +94,7 @@ app.post('/signup', async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
+
       return res.status(400).json({
         error: 'Email already exists'
       });
@@ -107,6 +127,7 @@ app.post('/signup', async (req, res) => {
     });
 
   } catch (err) {
+
     console.error(err);
 
     res.status(500).json({
@@ -116,14 +137,17 @@ app.post('/signup', async (req, res) => {
 });
 
 // =========================
-// LOGIN
+// LOGIN ROUTE
 // =========================
 
 app.post('/login', async (req, res) => {
+
   try {
+
     const { email, password } = req.body;
 
     if (!email || !password) {
+
       return res.status(400).json({
         error: 'Email and password required'
       });
@@ -135,6 +159,7 @@ app.post('/login', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+
       return res.status(400).json({
         error: 'Invalid credentials'
       });
@@ -148,6 +173,7 @@ app.post('/login', async (req, res) => {
     );
 
     if (!validPassword) {
+
       return res.status(400).json({
         error: 'Invalid credentials'
       });
@@ -175,6 +201,7 @@ app.post('/login', async (req, res) => {
     });
 
   } catch (err) {
+
     console.error(err);
 
     res.status(500).json({
@@ -188,9 +215,11 @@ app.post('/login', async (req, res) => {
 // =========================
 
 function authMiddleware(req, res, next) {
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
+
     return res.status(401).json({
       error: 'No token provided'
     });
@@ -199,6 +228,7 @@ function authMiddleware(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
+
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET
@@ -209,6 +239,7 @@ function authMiddleware(req, res, next) {
     next();
 
   } catch (err) {
+
     return res.status(401).json({
       error: 'Invalid token'
     });
@@ -220,7 +251,9 @@ function authMiddleware(req, res, next) {
 // =========================
 
 app.get('/profile', authMiddleware, async (req, res) => {
+
   try {
+
     const result = await pool.query(
       'SELECT id, name, email FROM users WHERE id = $1',
       [req.user.id]
@@ -229,6 +262,7 @@ app.get('/profile', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
 
   } catch (err) {
+
     console.error(err);
 
     res.status(500).json({
