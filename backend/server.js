@@ -7,10 +7,7 @@ require('dotenv').config();
 
 const app = express();
 
-app.use(cors({
-  origin: '*'
-}));
-
+app.use(cors());
 app.use(express.json());
 
 // ======================
@@ -43,20 +40,11 @@ async function initDB() {
       );
     `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS progress (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        lesson VARCHAR(255),
-        completed BOOLEAN DEFAULT true
-      );
-    `);
-
     console.log('Database ready');
 
   } catch (err) {
 
-    console.error(err);
+    console.error('DB ERROR:', err);
   }
 }
 
@@ -67,6 +55,7 @@ initDB();
 // ======================
 
 app.get('/', (req, res) => {
+
   res.send('TradeForge API running');
 });
 
@@ -78,16 +67,16 @@ function auth(req, res, next) {
 
   try {
 
-    const authHeader = req.headers.authorization;
+    const header = req.headers.authorization;
 
-    if (!authHeader) {
+    if (!header) {
 
       return res.status(401).json({
         error: 'No token'
       });
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = header.split(' ')[1];
 
     const decoded = jwt.verify(
       token,
@@ -99,6 +88,8 @@ function auth(req, res, next) {
     next();
 
   } catch (err) {
+
+    console.error('TOKEN ERROR:', err);
 
     return res.status(401).json({
       error: 'Invalid token'
@@ -159,7 +150,7 @@ app.post('/signup', async (req, res) => {
 
   } catch (err) {
 
-    console.error(err);
+    console.error('SIGNUP ERROR:', err);
 
     res.status(500).json({
       error: err.message
@@ -226,7 +217,7 @@ app.post('/login', async (req, res) => {
 
   } catch (err) {
 
-    console.error(err);
+    console.error('LOGIN ERROR:', err);
 
     res.status(500).json({
       error: err.message
@@ -251,11 +242,18 @@ app.get('/profile', auth, async (req, res) => {
       [req.user.id]
     );
 
+    if (result.rows.length === 0) {
+
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
     res.json(result.rows[0]);
 
   } catch (err) {
 
-    console.error(err);
+    console.error('PROFILE ERROR:', err);
 
     res.status(500).json({
       error: err.message
@@ -264,94 +262,12 @@ app.get('/profile', auth, async (req, res) => {
 });
 
 // ======================
-// COMPLETE LESSON
-// ======================
-
-app.post('/complete-lesson', auth, async (req, res) => {
-
-  try {
-
-    const { lesson } = req.body;
-
-    const existing = await pool.query(
-      `
-      SELECT *
-      FROM progress
-      WHERE user_id = $1
-      AND lesson = $2
-      `,
-      [req.user.id, lesson]
-    );
-
-    if (existing.rows.length === 0) {
-
-      await pool.query(
-        `
-        INSERT INTO progress (user_id, lesson)
-        VALUES ($1, $2)
-        `,
-        [req.user.id, lesson]
-      );
-
-      await pool.query(
-        `
-        UPDATE users
-        SET xp = xp + 10
-        WHERE id = $1
-        `,
-        [req.user.id]
-      );
-    }
-
-    res.json({
-      success: true
-    });
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-// ======================
-// GET PROGRESS
-// ======================
-
-app.get('/progress', auth, async (req, res) => {
-
-  try {
-
-    const result = await pool.query(
-      `
-      SELECT lesson
-      FROM progress
-      WHERE user_id = $1
-      `,
-      [req.user.id]
-    );
-
-    res.json(result.rows);
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({
-      error: err.message
-    });
-  }
-});
-
-// ======================
-// START SERVER
+// SERVER
 // ======================
 
 const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
+
   console.log(`Server running on port ${PORT}`);
 });
