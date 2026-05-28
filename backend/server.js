@@ -7,10 +7,6 @@ require('dotenv').config();
 
 const app = express();
 
-// ======================
-// MIDDLEWARE
-// ======================
-
 app.use(cors({
   origin: '*'
 }));
@@ -29,15 +25,7 @@ const pool = new Pool({
 });
 
 // ======================
-// ROOT
-// ======================
-
-app.get('/', (req, res) => {
-  res.send('TradeForge API running');
-});
-
-// ======================
-// CREATE TABLE
+// INIT DATABASE
 // ======================
 
 async function initDB() {
@@ -47,10 +35,20 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
+        name VARCHAR(255),
+        email VARCHAR(255) UNIQUE,
+        password VARCHAR(255),
+        xp INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS progress (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        lesson VARCHAR(255),
+        completed BOOLEAN DEFAULT true
       );
     `);
 
@@ -65,26 +63,48 @@ async function initDB() {
 initDB();
 
 // ======================
-// RESET USERS
+// ROOT
 // ======================
 
-app.get('/reset-users', async (req, res) => {
+app.get('/', (req, res) => {
+  res.send('TradeForge API running');
+});
+
+// ======================
+// AUTH MIDDLEWARE
+// ======================
+
+function auth(req, res, next) {
 
   try {
 
-    await pool.query(`
-      DELETE FROM users;
-    `);
+    const authHeader = req.headers.authorization;
 
-    res.send('All users deleted');
+    if (!authHeader) {
+
+      return res.status(401).json({
+        error: 'No token'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    req.user = decoded;
+
+    next();
 
   } catch (err) {
 
-    console.error(err);
-
-    res.status(500).send(err.message);
+    return res.status(401).json({
+      error: 'Invalid token'
+    });
   }
-});
+}
 
 // ======================
 // SIGNUP
@@ -95,13 +115,6 @@ app.post('/signup', async (req, res) => {
   try {
 
     const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-
-      return res.status(400).json({
-        error: 'All fields required'
-      });
-    }
 
     const existing = await pool.query(
       'SELECT * FROM users WHERE email = $1',
@@ -115,15 +128,15 @@ app.post('/signup', async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
       `
       INSERT INTO users (name, email, password)
       VALUES ($1, $2, $3)
-      RETURNING id, name, email
+      RETURNING id, name, email, xp
       `,
-      [name, email, hashedPassword]
+      [name, email, hashed]
     );
 
     const user = result.rows[0];
@@ -140,7 +153,6 @@ app.post('/signup', async (req, res) => {
     );
 
     res.json({
-      success: true,
       token,
       user
     });
@@ -179,12 +191,12 @@ app.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
-    const validPassword = await bcrypt.compare(
+    const valid = await bcrypt.compare(
       password,
       user.password
     );
 
-    if (!validPassword) {
+    if (!valid) {
 
       return res.status(400).json({
         error: 'Invalid credentials'
@@ -203,12 +215,12 @@ app.post('/login', async (req, res) => {
     );
 
     res.json({
-      success: true,
       token,
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        xp: user.xp
       }
     });
 
@@ -226,41 +238,18 @@ app.post('/login', async (req, res) => {
 // PROFILE
 // ======================
 
-app.get('/profile', async (req, res) => {
+app.get('/profile', auth, async (req, res) => {
 
   try {
 
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-
-      return res.status(401).json({
-        error: 'No token'
-      });
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-
     const result = await pool.query(
       `
-      SELECT id, name, email
+      SELECT id, name, email, xp
       FROM users
       WHERE id = $1
       `,
-      [decoded.id]
+      [req.user.id]
     );
-
-    if (result.rows.length === 0) {
-
-      return res.status(404).json({
-        error: 'User not found'
-      });
-    }
 
     res.json(result.rows[0]);
 
@@ -268,8 +257,91 @@ app.get('/profile', async (req, res) => {
 
     console.error(err);
 
-    res.status(401).json({
-      error: 'Invalid token'
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ======================
+// COMPLETE LESSON
+// ======================
+
+app.post('/complete-lesson', auth, async (req, res) => {
+
+  try {
+
+    const { lesson } = req.body;
+
+    const existing = await pool.query(
+      `
+      SELECT *
+      FROM progress
+      WHERE user_id = $1
+      AND lesson = $2
+      `,
+      [req.user.id, lesson]
+    );
+
+    if (existing.rows.length === 0) {
+
+      await pool.query(
+        `
+        INSERT INTO progress (user_id, lesson)
+        VALUES ($1, $2)
+        `,
+        [req.user.id, lesson]
+      );
+
+      await pool.query(
+        `
+        UPDATE users
+        SET xp = xp + 10
+        WHERE id = $1
+        `,
+        [req.user.id]
+      );
+    }
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ======================
+// GET PROGRESS
+// ======================
+
+app.get('/progress', auth, async (req, res) => {
+
+  try {
+
+    const result = await pool.query(
+      `
+      SELECT lesson
+      FROM progress
+      WHERE user_id = $1
+      `,
+      [req.user.id]
+    );
+
+    res.json(result.rows);
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message
     });
   }
 });
