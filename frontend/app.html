@@ -1,261 +1,167 @@
-<!DOCTYPE html>
-<html lang="en">
+<script>
 
-<head>
+const API = window.TRADEFORGE_API;
 
-  <meta charset="UTF-8" />
+// ======================
+// GET TOKEN
+// ======================
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
+const token = localStorage.getItem('token');
 
-  <title>TradeForge Dashboard</title>
+console.log('TOKEN:', token);
 
-  <script src="config.js"></script>
+// ======================
+// CHECK IF LOGGED IN
+// ======================
 
-  <style>
+if (!token || token === 'undefined' || token === 'null') {
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
+  console.log('NO VALID TOKEN');
+
+  window.location.href = 'index.html';
+}
+
+// ======================
+// LOAD PROFILE
+// ======================
+
+async function loadProfile() {
+
+  try {
+
+    console.log('Loading profile...');
+
+    const response = await fetch(`${API}/profile`, {
+
+      method: 'GET',
+
+      headers: {
+
+        'Content-Type': 'application/json',
+
+        'Authorization': `Bearer ${token}`
+
+      }
+
+    });
+
+    console.log('PROFILE RESPONSE:', response.status);
+
+    // ======================
+    // HANDLE BAD TOKEN
+    // ======================
+
+    if (response.status === 401) {
+
+      console.log('TOKEN INVALID');
+
+      localStorage.removeItem('token');
+
+      window.location.href = 'index.html';
+
+      return;
     }
 
-    body {
-      background: #0f172a;
-      color: white;
-      display: flex;
-    }
+    const user = await response.json();
 
-    .sidebar {
-      width: 250px;
-      height: 100vh;
-      background: #1e293b;
-      position: fixed;
-      left: 0;
-      top: 0;
-      padding: 30px 20px;
-      overflow-y: auto;
-    }
+    console.log('USER:', user);
 
-    .logo {
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 40px;
-      color: #3b82f6;
-    }
+    // ======================
+    // UPDATE UI
+    // ======================
 
-    .menu-item {
-      padding: 15px;
-      margin-bottom: 12px;
-      background: #334155;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: 0.2s;
-      font-size: 15px;
-    }
+    document.getElementById('user-info').innerHTML = `
+      👤 ${user.name}<br>
+      ${user.email}<br>
+      ⭐ XP: ${user.xp || 0}
+    `;
 
-    .menu-item:hover {
-      background: #3b82f6;
-    }
+  } catch (err) {
 
-    .main {
-      margin-left: 250px;
-      width: calc(100% - 250px);
-      padding: 40px;
-    }
+    console.error('PROFILE ERROR:', err);
 
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 40px;
-      flex-wrap: wrap;
-      gap: 20px;
-    }
+    alert('Cannot connect to server');
 
-    .topbar h1 {
-      font-size: 38px;
-      margin-bottom: 10px;
-    }
+  }
+}
 
-    .topbar p {
-      color: #94a3b8;
-    }
+// ======================
+// LOAD USER
+// ======================
 
-    .user-box {
-      background: #1e293b;
-      padding: 15px 20px;
-      border-radius: 12px;
-      text-align: right;
-    }
+loadProfile();
 
-    .logout-btn {
-      margin-top: 10px;
-      width: 100%;
-      background: #ef4444;
-      border: none;
-      color: white;
-      padding: 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 14px;
-    }
+// ======================
+// LOGOUT
+// ======================
 
-    .lesson-page {
-      max-width: 1100px;
-    }
+function logout() {
 
-    .lesson-title {
-      font-size: 42px;
-      margin-bottom: 30px;
-      color: #3b82f6;
-    }
+  localStorage.removeItem('token');
 
-    .lesson-card {
-      background: #1e293b;
-      padding: 30px;
-      border-radius: 20px;
-      margin-bottom: 25px;
-    }
+  window.location.href = 'index.html';
+}
 
-    .lesson-card h2 {
-      margin-bottom: 20px;
-      color: #3b82f6;
-    }
+// ======================
+// COMPLETE LESSON
+// ======================
 
-    .lesson-card p,
-    .lesson-card li {
-      color: #cbd5e1;
-      line-height: 1.8;
-      font-size: 17px;
-    }
+async function completeLesson(lessonName) {
 
-    .lesson-card ul {
-      padding-left: 20px;
-    }
+  try {
 
-    .chart-box {
-      margin-top: 30px;
-      border-radius: 20px;
-      overflow: hidden;
-    }
+    const response = await fetch(`${API}/complete-lesson`, {
 
-  </style>
+      method: 'POST',
 
-</head>
+      headers: {
 
-<body>
+        'Content-Type': 'application/json',
 
-  <!-- SIDEBAR -->
+        'Authorization': `Bearer ${token}`
 
-  <div class="sidebar">
+      },
 
-    <div class="logo">
-      TradeForge
-    </div>
+      body: JSON.stringify({
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('basics')"
-    >
-      📘 Forex Basics
-    </div>
+        lesson: lessonName
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('pairs')"
-    >
-      💱 Currency Pairs
-    </div>
+      })
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('candles')"
-    >
-      🕯 Candlestick Patterns
-    </div>
+    });
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('risk')"
-    >
-      🛡 Risk Management
-    </div>
+    const data = await response.json();
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('psychology')"
-    >
-      🧠 Trading Psychology
-    </div>
+    console.log(data);
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('strategy')"
-    >
-      📈 Trading Strategies
-    </div>
+    alert('Lesson completed! +10 XP');
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('calendar')"
-    >
-      📅 Economic Calendar
-    </div>
+    loadProfile();
 
-    <div
-      class="menu-item"
-      onclick="loadLesson('charts')"
-    >
-      📊 Live Forex Charts
-    </div>
+  } catch (err) {
 
-  </div>
+    console.error(err);
 
-  <!-- MAIN -->
+    alert('Failed to save progress');
 
-  <div class="main">
+  }
+}
 
-    <div class="topbar">
+// ======================
+// LESSON LOADER
+// ======================
 
-      <div>
+function loadLesson(type) {
 
-        <h1>
-          Welcome to TradeForge
-        </h1>
+  const content = document.getElementById('content-area');
 
-        <p>
-          Learn Forex From Zero To Expert
-        </p>
+  // ======================
+  // BASICS
+  // ======================
 
-      </div>
+  if (type === 'basics') {
 
-      <div>
-
-        <div
-          class="user-box"
-          id="user-info"
-        >
-          Loading...
-        </div>
-
-        <button
-          class="logout-btn"
-          onclick="logout()"
-        >
-          Logout
-        </button>
-
-      </div>
-
-    </div>
-
-    <!-- CONTENT -->
-
-    <div id="content-area">
+    content.innerHTML = `
 
       <div class="lesson-page">
 
@@ -265,25 +171,57 @@
 
         <div class="lesson-card">
 
-          <h2>
-            What Is Forex?
-          </h2>
+          <h2>What Is Forex?</h2>
 
           <p>
-            Forex (Foreign Exchange) is the global market where currencies are traded.
+            Forex is the global market where currencies are traded.
           </p>
 
           <p>
-            Traders buy and sell currencies to profit from price movements.
+            Traders buy and sell currencies to make profit from price movement.
           </p>
 
         </div>
 
         <div class="lesson-card">
 
-          <h2>
-            Major Currency Pairs
-          </h2>
+          <h2>What Is A Pip?</h2>
+
+          <p>
+            A pip is the smallest price movement in forex.
+          </p>
+
+        </div>
+
+        <button
+          onclick="completeLesson('Forex Basics')"
+          class="logout-btn"
+        >
+          Complete Lesson
+        </button>
+
+      </div>
+
+    `;
+  }
+
+  // ======================
+  // PAIRS
+  // ======================
+
+  else if (type === 'pairs') {
+
+    content.innerHTML = `
+
+      <div class="lesson-page">
+
+        <h1 class="lesson-title">
+          Currency Pairs
+        </h1>
+
+        <div class="lesson-card">
+
+          <h2>Major Pairs</h2>
 
           <ul>
             <li>EUR/USD</li>
@@ -294,384 +232,261 @@
 
         </div>
 
+        <button
+          onclick="completeLesson('Currency Pairs')"
+          class="logout-btn"
+        >
+          Complete Lesson
+        </button>
+
+      </div>
+
+    `;
+  }
+
+  // ======================
+  // CANDLES
+  // ======================
+
+  else if (type === 'candles') {
+
+    content.innerHTML = `
+
+      <div class="lesson-page">
+
+        <h1 class="lesson-title">
+          Candlestick Patterns
+        </h1>
+
         <div class="lesson-card">
 
-          <h2>
-            What Is A Pip?
-          </h2>
+          <h2>Bullish Engulfing</h2>
 
           <p>
-            A pip is the smallest price movement in forex pairs.
+            Signals possible bullish momentum.
           </p>
+
+        </div>
+
+        <div class="lesson-card">
+
+          <h2>Bearish Engulfing</h2>
+
+          <p>
+            Signals possible bearish momentum.
+          </p>
+
+        </div>
+
+        <button
+          onclick="completeLesson('Candlestick Patterns')"
+          class="logout-btn"
+        >
+          Complete Lesson
+        </button>
+
+      </div>
+
+    `;
+  }
+
+  // ======================
+  // RISK
+  // ======================
+
+  else if (type === 'risk') {
+
+    content.innerHTML = `
+
+      <div class="lesson-page">
+
+        <h1 class="lesson-title">
+          Risk Management
+        </h1>
+
+        <div class="lesson-card">
+
+          <h2>The 1% Rule</h2>
+
+          <p>
+            Never risk more than 1% of your account on one trade.
+          </p>
+
+        </div>
+
+        <button
+          onclick="completeLesson('Risk Management')"
+          class="logout-btn"
+        >
+          Complete Lesson
+        </button>
+
+      </div>
+
+    `;
+  }
+
+  // ======================
+  // PSYCHOLOGY
+  // ======================
+
+  else if (type === 'psychology') {
+
+    content.innerHTML = `
+
+      <div class="lesson-page">
+
+        <h1 class="lesson-title">
+          Trading Psychology
+        </h1>
+
+        <div class="lesson-card">
+
+          <h2>Control Emotions</h2>
+
+          <p>
+            Fear and greed destroy traders.
+          </p>
+
+        </div>
+
+        <button
+          onclick="completeLesson('Trading Psychology')"
+          class="logout-btn"
+        >
+          Complete Lesson
+        </button>
+
+      </div>
+
+    `;
+  }
+
+  // ======================
+  // STRATEGY
+  // ======================
+
+  else if (type === 'strategy') {
+
+    content.innerHTML = `
+
+      <div class="lesson-page">
+
+        <h1 class="lesson-title">
+          Trading Strategies
+        </h1>
+
+        <div class="lesson-card">
+
+          <h2>Trend Following</h2>
+
+          <p>
+            Trade with the overall market direction.
+          </p>
+
+        </div>
+
+        <button
+          onclick="completeLesson('Trading Strategies')"
+          class="logout-btn"
+        >
+          Complete Lesson
+        </button>
+
+      </div>
+
+    `;
+  }
+
+  // ======================
+  // CALENDAR
+  // ======================
+
+  else if (type === 'calendar') {
+
+    content.innerHTML = `
+
+      <div class="lesson-page">
+
+        <h1 class="lesson-title">
+          Economic Calendar
+        </h1>
+
+        <div class="lesson-card">
+
+          <h2>Important News Events</h2>
+
+          <ul>
+            <li>NFP</li>
+            <li>CPI</li>
+            <li>FOMC</li>
+            <li>Interest Rate Decisions</li>
+          </ul>
+
+        </div>
+
+        <button
+          onclick="completeLesson('Economic Calendar')"
+          class="logout-btn"
+        >
+          Complete Lesson
+        </button>
+
+      </div>
+
+    `;
+  }
+
+  // ======================
+  // CHARTS
+  // ======================
+
+  else if (type === 'charts') {
+
+    content.innerHTML = `
+
+      <div class="lesson-page">
+
+        <h1 class="lesson-title">
+          Live Forex Charts
+        </h1>
+
+        <div class="lesson-card">
+
+          <h2>EUR/USD Live Chart</h2>
+
+          <div
+            id="tradingview_chart"
+            style="height:500px;"
+          ></div>
 
         </div>
 
       </div>
 
-    </div>
-
-  </div>
-
-  <!-- TRADINGVIEW -->
-
-  <script
-    type="text/javascript"
-    src="https://s3.tradingview.com/tv.js"
-  ></script>
-
-  <!-- MAIN SCRIPT -->
-
-  <script>
-
-    const API = window.TRADEFORGE_API;
-
-    const token = localStorage.getItem('token');
-
-    // ======================
-    // AUTH CHECK
-    // ======================
-
-    if (!token) {
-
-      window.location.href = 'index.html';
-    }
-
-    // ======================
-    // LOAD PROFILE
-    // ======================
-
-    async function loadProfile() {
-
-      try {
-
-        const response = await fetch(`${API}/profile`, {
-
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-
-        });
-
-        const user = await response.json();
-
-        if (!response.ok) {
-
-          localStorage.removeItem('token');
-
-          window.location.href = 'index.html';
-
-          return;
-        }
-
-        document.getElementById('user-info').innerHTML = `
-          👤 ${user.name}<br>
-          ${user.email}
-        `;
-
-      } catch (err) {
-
-        console.error(err);
-
-        alert('Failed to load profile');
-      }
-    }
-
-    loadProfile();
-
-    // ======================
-    // LOGOUT
-    // ======================
-
-    function logout() {
-
-      localStorage.removeItem('token');
-
-      window.location.href = 'index.html';
-    }
-
-    // ======================
-    // LESSONS
-    // ======================
-
-    function loadLesson(type) {
-
-      const content = document.getElementById('content-area');
-
-      // BASICS
-
-      if (type === 'basics') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Forex Basics
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>What Is Forex?</h2>
-
-              <p>
-                Forex is the largest financial market in the world where currencies are traded.
-              </p>
-
-            </div>
-
-            <div class="lesson-card">
-
-              <h2>Trading Sessions</h2>
-
-              <p>
-                Main sessions:
-              </p>
-
-              <ul>
-                <li>London</li>
-                <li>New York</li>
-                <li>Tokyo</li>
-                <li>Sydney</li>
-              </ul>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-
-      // PAIRS
-
-      else if (type === 'pairs') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Currency Pairs
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>Major Pairs</h2>
-
-              <ul>
-                <li>EUR/USD</li>
-                <li>GBP/USD</li>
-                <li>USD/JPY</li>
-                <li>USD/CHF</li>
-              </ul>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-
-      // CANDLES
-
-      else if (type === 'candles') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Candlestick Patterns
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>Bullish Engulfing</h2>
-
-              <p>
-                Signals possible upward momentum.
-              </p>
-
-            </div>
-
-            <div class="lesson-card">
-
-              <h2>Bearish Engulfing</h2>
-
-              <p>
-                Signals possible downward momentum.
-              </p>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-
-      // RISK
-
-      else if (type === 'risk') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Risk Management
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>The 1% Rule</h2>
-
-              <p>
-                Never risk more than 1% of your account per trade.
-              </p>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-
-      // PSYCHOLOGY
-
-      else if (type === 'psychology') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Trading Psychology
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>Control Emotions</h2>
-
-              <p>
-                Fear and greed destroy traders. Discipline builds consistency.
-              </p>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-
-      // STRATEGY
-
-      else if (type === 'strategy') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Trading Strategies
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>Trend Following</h2>
-
-              <p>
-                Trade with the overall market direction.
-              </p>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-
-      // CALENDAR
-
-      else if (type === 'calendar') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Economic Calendar
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>Important News Events</h2>
-
-              <ul>
-                <li>NFP</li>
-                <li>CPI</li>
-                <li>FOMC</li>
-                <li>Interest Rate Decisions</li>
-              </ul>
-
-            </div>
-
-          </div>
-
-        `;
-      }
-
-      // CHARTS
-
-      else if (type === 'charts') {
-
-        content.innerHTML = `
-
-          <div class="lesson-page">
-
-            <h1 class="lesson-title">
-              Live Forex Charts
-            </h1>
-
-            <div class="lesson-card">
-
-              <h2>EUR/USD Live Chart</h2>
-
-              <div
-                id="tradingview_chart"
-                class="chart-box"
-                style="height:500px;"
-              ></div>
-
-            </div>
-
-          </div>
-
-        `;
-
-        setTimeout(() => {
-
-          new TradingView.widget({
-
-            "width": "100%",
-            "height": 500,
-            "symbol": "FX:EURUSD",
-            "interval": "15",
-            "timezone": "Etc/UTC",
-            "theme": "dark",
-            "style": "1",
-            "locale": "en",
-            "toolbar_bg": "#0f172a",
-            "enable_publishing": false,
-            "allow_symbol_change": true,
-            "container_id": "tradingview_chart"
-
-          });
-
-        }, 100);
-      }
-    }
-
-  </script>
-
-</body>
-
-</html>
+    `;
+
+    setTimeout(() => {
+
+      new TradingView.widget({
+
+        "width": "100%",
+        "height": 500,
+        "symbol": "FX:EURUSD",
+        "interval": "15",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#0f172a",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_chart"
+
+      });
+
+    }, 100);
+  }
+}
+
+</script>
