@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="config.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeForge Academy — Professional Trading Education</title>
+<script>
+  // ── AUTH GUARD ─────────────────────────────────
+  // Redirect to login if not authenticated
+  const _token = localStorage.getItem('tf_token');
+  if (!_token) window.location.href = 'index.html';
+
+  // ── API CONFIG ─────────────────────────────────
+  const API = window.TRADEFORGE_API;
+
+  async function apiCall(path, method='GET', body=null) {
+    const opts = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('tf_token'),
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(API + path, opts);
+    if (res.status === 401) { localStorage.clear(); window.location.href = 'index.html'; }
+    return res.json();
+  }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<style>
+:root{
+  --gold:#C9A84C;--gold-light:#E8C96A;--gold-dim:#7A6230;--gold-bg:rgba(201,168,76,0.07);
+  --bg:#0A0A0C;--bg2:#111116;--bg3:#18181F;--bg4:#1E1E28;--bg5:#242432;
+  --border:rgba(201,168,76,0.13);--border2:rgba(201,168,76,0.28);
+  --text:#E8E8EC;--text2:#9090A0;--text3:#5A5A6A;
+  --green:#2ECC8E;--red:#E84040;--blue:#4A9EFF;--purple:#8B6FFF;--orange:#F5A623;
+  --green-bg:rgba(46,204,142,0.08);--red-bg:rgba(232,64,64,0.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:2px}
+
+/* ── LAYOUT ── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:265px;min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:100;transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto}
+.main{margin-left:265px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.content{padding:28px 32px;flex:1}
+
+/* ── SIDEBAR ── */
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--gold);line-height:1}
+.logo-sub{font-size:9px;letter-spacing:3px;color:var(--text3);text-transform:uppercase;margin-top:2px}
+.slabel{font-size:9px;letter-spacing:2.5px;color:var(--text3);text-transform:uppercase;padding:18px 20px 7px}
+.sitem{display:flex;align-items:center;gap:9px;padding:9px 20px;cursor:pointer;transition:all .15s;border-left:2px solid transparent;font-size:13px;color:var(--text2);user-select:none}
+.sitem:hover{color:var(--text);background:rgba(201,168,76,0.05)}
+.sitem.active{color:var(--gold);border-left-color:var(--gold);background:var(--gold-bg)}
+.sitem .sicon{width:16px;text-align:center;font-size:13px;flex-shrink:0}
+.sbadge{margin-left:auto;font-size:9px;padding:2px 6px;border-radius:3px;font-family:'DM Mono',monospace}
+.sbadge.done{background:rgba(46,204,142,0.15);color:var(--green)}
+.sbadge.locked{background:rgba(90,90,106,0.25);color:var(--text3)}
+.sbadge.active-b{background:var(--gold-dim);color:var(--gold-light)}
+.sidebar-foot{padding:14px 20px;border-top:1px solid var(--border);margin-top:auto}
+.prog-label{font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;justify-content:space-between}
+.prog-track{height:3px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:2px;transition:width .6s}
+.xp-row{display:flex;align-items:center;gap:6px;margin-top:9px;font-size:11px;color:var(--text3)}
+.xp-val{font-family:'DM Mono',monospace;color:var(--gold)}
+
+/* ── TOPBAR ── */
+.topbar{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:14px;position:sticky;top:0;z-index:50;flex-shrink:0}
+.topbar-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px}
+.topbar-crumb{font-size:11px;color:var(--text3)}
+.topbar-crumb span{color:var(--gold)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.hdr-ticker{display:flex;gap:5px;align-items:baseline;font-family:'DM Mono',monospace;font-size:11px}
+.hdr-sym{color:var(--text3);font-size:10px}
+.live-pill{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);color:var(--text3)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.up{color:var(--green)}.dn{color:var(--red)}
+
+/* ── PAGE TRANSITIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.page{display:none}.page.active{display:block;animation:fadeUp .25s ease}
+
+/* ── COMMON COMPONENTS ── */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:10px}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.card-header h3{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px}
+.card-body{padding:20px}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:12px}
+.muted{font-size:11px;color:var(--text3)}
+.gold{color:var(--gold)}
+.btn{padding:10px 22px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .18s;font-family:'DM Sans',sans-serif;letter-spacing:.2px}
+.btn-gold{background:var(--gold);color:#0A0A0C}.btn-gold:hover{background:var(--gold-light);transform:translateY(-1px)}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border2)}.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:7px 14px;font-size:12px}
+.btn-ghost{background:rgba(255,255,255,0.04);color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{color:var(--text)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:3px 10px;border-radius:4px}
+.tag-gold{color:var(--gold);background:var(--gold-bg);border:1px solid var(--border2)}
+.tag-green{color:var(--green);background:var(--green-bg);border:1px solid rgba(46,204,142,.25)}
+.tag-red{color:var(--red);background:var(--red-bg);border:1px solid rgba(232,64,64,.25)}
+.tag-blue{color:var(--blue);background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25)}
+.tag-lock{color:var(--text3);background:rgba(90,90,106,.15);border:1px solid var(--border)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+/* ── TICKER MARQUEE ── */
+.marquee-wrap{overflow:hidden;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:7px 0;margin-bottom:24px}
+.marquee-inner{display:flex;gap:32px;animation:scroll 45s linear infinite;white-space:nowrap}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.mk{display:inline-flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:11px}
+.mk-n{color:var(--text3);font-size:10px}.mk-p{color:var(--text)}
+.mk-c{font-size:10px;padding:1px 5px;border-radius:3px}
+.mk-c.up{background:rgba(46,204,142,.12);color:var(--green)}
+.mk-c.dn{background:rgba(232,64,64,.12);color:var(--red)}
+
+/* ── HERO ── */
+.hero{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:40px;margin-bottom:24px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-80px;right:-80px;width:320px;height:320px;background:radial-gradient(circle,rgba(201,168,76,.07) 0%,transparent 70%);pointer-events:none}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:54px;letter-spacing:2px;line-height:1;margin:12px 0 10px}
+.hero h1 span{color:var(--gold)}
+.hero p{font-size:14px;color:var(--text2);max-width:540px;line-height:1.75;margin-bottom:26px}
+.hero-btns{display:flex;gap:10px;flex-wrap:wrap}
+
+/* ── STATS GRID ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.stat-label{font-size:10px;letter-spacing:.5px;color:var(--text3);margin-bottom:6px;text-transform:uppercase}
+.stat-val{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:1px;color:var(--gold);line-height:1}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+/* ── MARKET CARDS ── */
+.grid-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px}
+.market-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:all .18s;cursor:pointer;position:relative;overflow:hidden}
+.market-card:hover{border-color:var(--border2);transform:translateY(-2px);background:var(--bg4)}
+.mc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.mc-name{font-size:12px;font-weight:600;color:var(--text)}
+.mc-badge{font-size:9px;padding:2px 7px;border-radius:3px;font-family:'DM Mono',monospace}
+.mc-price{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.5px;line-height:1;margin-bottom:5px}
+.mc-meta{display:flex;justify-content:space-between;align-items:center}
+.mc-chg{font-family:'DM Mono',monospace;font-size:12px}
+.mc-vol{font-size:10px;color:var(--text3)}
+.loading-sh{background:linear-gradient(90deg,var(--bg4) 25%,var(--bg3) 50%,var(--bg4) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:4px;height:20px;width:70%}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:3px;background:var(--bg4);border-radius:8px;padding:3px;margin-bottom:16px}
+.tab{padding:7px 15px;border-radius:5px;font-size:12px;cursor:pointer;color:var(--text3);transition:all .13s;user-select:none}
+.tab.active{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.tab:hover:not(.active){color:var(--text2)}
+
+/* ── CHART PANEL ── */
+.chart-panel{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px}
+.chart-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.chart-header h3{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px}
+.tf-group{display:flex;gap:3px;margin-left:auto}
+.tf-btn{font-size:10px;padding:4px 9px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:'DM Mono',monospace;transition:all .13s}
+.tf-btn.active{background:var(--gold);color:#0A0A0C;border-color:var(--gold)}
+.tf-btn:hover:not(.active){color:var(--text);border-color:var(--border2)}
+.chart-info{font-size:12px;color:var(--text3);margin-bottom:10px;min-height:18px}
+canvas{display:block;width:100%!important}
+
+/* ── LESSON ── */
+.lesson-wrap .lesson-section{margin-bottom:22px}
+.lesson-wrap h4{font-size:10px;font-weight:600;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.lesson-text{font-size:14px;color:var(--text2);line-height:1.82}
+.analogy{background:rgba(201,168,76,.05);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:6px;padding:14px 16px;font-size:13px;color:var(--text2);line-height:1.75;margin:12px 0}
+.analogy strong{color:var(--gold)}
+.info-box{border-radius:6px;padding:14px 16px;font-size:13px;line-height:1.7;margin:12px 0}
+.info-box.green{background:rgba(46,204,142,.06);border:1px solid rgba(46,204,142,.2);color:var(--text2)}
+.info-box.blue{background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.2);color:var(--text2)}
+.info-box.red{background:rgba(232,64,64,.06);border:1px solid rgba(232,64,64,.2);color:var(--text2)}
+.info-box strong{color:var(--text)}
+.table-wrap{overflow-x:auto;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:9px 12px;background:var(--bg4);color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text2);line-height:1.5}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.mono{font-family:'DM Mono',monospace}
+
+/* ── HIERARCHY BARS ── */
+.tier-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:7px;border:1px solid var(--border);font-size:13px;margin-bottom:5px}
+.tier-n{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);min-width:22px}
+.tier-name{font-weight:500;color:var(--text);min-width:165px}
+.tier-desc{font-size:12px;color:var(--text3);flex:1}
+.tier-bar{height:5px;border-radius:3px;flex-shrink:0;transition:width 1s}
+
+/* ── QUIZ ── */
+.quiz-card{background:var(--bg4);border:1px solid var(--border2);border-radius:10px;padding:22px}
+.quiz-card h4{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--gold);margin-bottom:6px}
+.quiz-q{margin-bottom:20px}
+.quiz-q-text{font-size:14px;color:var(--text);margin-bottom:10px;line-height:1.6}
+.quiz-opts{display:flex;flex-direction:column;gap:6px}
+.qopt{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;color:var(--text2);transition:all .13s;user-select:none}
+.qopt:hover{border-color:var(--border2);color:var(--text)}
+.qopt.sel{border-color:var(--gold);background:rgba(201,168,76,.07);color:var(--gold)}
+.qopt.correct{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+.qopt.wrong{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+.qcircle{width:17px;height:17px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.quiz-submit{margin-top:16px;width:100%;padding:12px;background:var(--gold);color:#0A0A0C;border:none;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s}
+.quiz-submit:hover{background:var(--gold-light)}
+.quiz-result{margin-top:14px;padding:14px;border-radius:6px;font-size:13px;line-height:1.7;display:none}
+.quiz-result.show{display:block}
+.quiz-result.pass{background:var(--green-bg);border:1px solid rgba(46,204,142,.3);color:var(--green)}
+.quiz-result.fail{background:var(--red-bg);border:1px solid rgba(232,64,64,.3);color:var(--red)}
+.exp-block{margin-top:10px;padding:10px;background:rgba(232,64,64,.05);border-radius:6px}
+
+/* ── HOMEWORK ── */
+.hw-box{background:var(--bg4);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:7px;padding:16px 18px;margin-top:18px}
+.hw-box h4{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--purple);margin-bottom:10px}
+.hw-item{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text2);margin-bottom:8px;line-height:1.6}
+.hw-chk{width:16px;height:16px;border:1.5px solid var(--border2);border-radius:3px;margin-top:2px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .15s}
+.hw-chk.done{background:var(--purple);border-color:var(--purple);color:#fff}
+
+/* ── RISK CALC ── */
+.calc-row{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+.calc-label{font-size:12px;color:var(--text3);min-width:145px}
+.cinput{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;transition:border-color .15s;outline:none}
+.cinput:focus{border-color:var(--gold)}
+select.cinput option{background:var(--bg2)}
+.result-row{display:flex;justify-content:space-between;padding:9px 14px;background:var(--bg3);border-radius:6px;margin-top:5px;border:1px solid var(--border)}
+.result-label{font-size:12px;color:var(--text3)}
+.result-val{font-family:'DM Mono',monospace;font-size:13px;color:var(--gold)}
+
+/* ── SIMULATOR ── */
+.sim-chart-wrap{background:var(--bg4);border-radius:8px;overflow:hidden;margin-bottom:16px;position:relative}
+.sim-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.sim-ctrl-card{background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:14px}
+.sim-ctrl-title{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.sim-pnl{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:1px;line-height:1}
+.sim-btns{display:flex;gap:8px;margin-top:10px}
+.sim-btn-buy{background:var(--green);color:#0A0A0C;border:none;border-radius:6px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;flex:1;transition:all .15s}
+.sim-btn-buy:hover{filter:brightness(1.1)}
+.sim-btn-sell{background:var(--red);color:#fff;border:none;border-radius:6px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;flex:1;transition:all .15s}
+.sim-btn-sell:hover{filter:brightness(1.1)}
+.sim-btn-close{background:var(--bg5);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;flex:1}
+.sim-trade-log{max-height:200px;overflow-y:auto}
+.sim-trade-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg4);border-radius:5px;margin-bottom:5px;font-size:12px}
+
+/* ── JOURNAL ── */
+.j-form-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.j-entry{background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:9px}
+.j-head{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.j-pair{font-family:'DM Mono',monospace;font-size:13px;font-weight:500}
+.j-dir{font-size:9px;padding:2px 7px;border-radius:3px}
+.j-dir.long{background:rgba(46,204,142,.15);color:var(--green)}
+.j-dir.short{background:rgba(232,64,64,.15);color:var(--red)}
+.j-date{font-size:11px;color:var(--text3);margin-left:auto}
+.j-notes{font-size:12px;color:var(--text2);line-height:1.6}
+.j-pnl{font-family:'DM Mono',monospace;font-size:13px;margin-top:5px}
+
+/* ── GLOSSARY ── */
+.gloss-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+.gloss-item{background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:10px 12px}
+.gloss-term{font-size:12px;font-weight:600;color:var(--gold);margin-bottom:3px}
+.gloss-def{font-size:11px;color:var(--text3);line-height:1.55}
+
+/* ── MENTOR BOX ── */
+.mentor{display:flex;gap:12px;padding:14px 16px;background:rgba(201,168,76,.04);border:1px solid var(--border);border-radius:8px;margin-bottom:18px}
+.mentor-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dim),var(--gold));display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:13px;color:#0A0A0C;flex-shrink:0;letter-spacing:1px}
+.mentor-txt{font-size:13px;color:var(--text2);line-height:1.72}
+.mentor-txt strong{color:var(--gold)}
+
+/* ── PROGRESS ── */
+.prog-section{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px}
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.prog-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.prog-name{font-size:12px;color:var(--text2);flex:1}
+.prog-bar-wrap{width:90px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.prog-bar-fill{height:100%;border-radius:2px}
+.prog-pct{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);min-width:28px;text-align:right}
+
+/* ── LEVEL CARDS ── */
+.levels-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.lvl-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.lvl-card:hover{border-color:var(--border2);transform:translateY(-2px);background:var(--bg4)}
+.lvl-card.cur{border-color:var(--gold)}
+.lvl-accent{position:absolute;top:0;left:0;right:0;height:2px}
+.lvl-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.lvl-tag::after{content:'';flex:1;height:1px;background:var(--border)}
+.lvl-card h3{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin-bottom:3px}
+.lvl-sub{font-size:12px;color:var(--text3);margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.chip{font-size:10px;padding:3px 9px;background:var(--bg4);border:1px solid var(--border);border-radius:4px;color:var(--text2)}
+.lvl-footer{display:flex;align-items:center;justify-content:space-between}
+
+/* ── CURRICULUM LIST ── */
+.curr-level{margin-bottom:20px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.curr-lvl-hdr{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.curr-lvl-hdr h3{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px}
+.curr-modules{padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:8px}
+.curr-mod{display:flex;align-items:flex-start;gap:8px;padding:9px 11px;background:var(--bg4);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .13s}
+.curr-mod:hover{border-color:var(--border2);color:var(--text)}
+.curr-mod-num{font-family:'DM Mono',monospace;font-size:10px;min-width:22px;flex-shrink:0;margin-top:1px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--text);z-index:999;display:none;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:290px}
+.toast.show{display:flex;animation:fadeUp .3s ease}
+
+/* ── MOBILE ── */
+.mobile-toggle{display:none;position:fixed;top:14px;left:14px;z-index:200;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;cursor:pointer;font-size:16px;color:var(--gold)}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.sb-overlay.open{display:block}
+  .main{margin-left:0}.mobile-toggle{display:flex;align-items:center}
+  .topbar{padding-left:52px}.stats-row{grid-template-columns:1fr 1fr}
+  .levels-grid,.j-form-grid{grid-template-columns:1fr}
+  .content{padding:16px}.topbar-right .hdr-ticker:nth-child(n+3){display:none}
+}
+</style>
+</head>
+<body>
+<button class="mobile-toggle" onclick="toggleSB()">☰</button>
+<div class="sb-overlay" id="overlay" onclick="toggleSB(false)"></div>
+<div class="app">
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">TradeForge</div>
+    <div class="logo-sub">Academy · Live Data</div>
+  </div>
+  <div class="slabel">Main</div>
+  <div class="sitem active" data-page="dashboard"><span class="sicon">⬡</span>Dashboard</div>
+  <div class="sitem" data-page="markets"><span class="sicon">◈</span>Live Markets</div>
+  <div class="sitem" data-page="simulator"><span class="sicon">◉</span>Trade Simulator</div>
+  <div class="sitem" data-page="curriculum"><span class="sicon">◎</span>Curriculum</div>
+  <div class="slabel">Level 1 — Beginner</div>
+  <div class="sitem" data-lesson="intro"><span class="sicon">·</span>L1: What is trading?<span class="sbadge done">✓</span></div>
+  <div class="sitem" data-lesson="markets2"><span class="sicon">·</span>L2: Types of markets<span class="sbadge active-b">Now</span></div>
+  <div class="sitem" data-lesson="charts"><span class="sicon">·</span>L3: Reading charts</div>
+  <div class="sitem" data-lesson="riskbasics"><span class="sicon">·</span>L4: Risk management<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="brokers"><span class="sicon">·</span>L5: Brokers & platforms<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="mistakes"><span class="sicon">·</span>L6: Beginner mistakes<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="psychology"><span class="sicon">·</span>L7: Psychology<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="leverage"><span class="sicon">·</span>L8: Leverage & margin<span class="sbadge locked">🔒</span></div>
+  <div class="slabel">Level 2 — Intermediate</div>
+  <div class="sitem" data-lesson="ta"><span class="sicon">·</span>L9: Technical analysis<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="structure"><span class="sicon">·</span>L10: Market structure<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="sd"><span class="sicon">·</span>L11: Supply & demand<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="indicators"><span class="sicon">·</span>L12: Indicators<span class="sbadge locked">🔒</span></div>
+  <div class="slabel">Level 3 — Advanced</div>
+  <div class="sitem" data-lesson="smc"><span class="sicon">·</span>L13: Smart money (SMC)<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="ict"><span class="sicon">·</span>L14: ICT concepts<span class="sbadge locked">🔒</span></div>
+  <div class="sitem" data-lesson="ob"><span class="sicon">·</span>L15: Order blocks & FVGs<span class="sbadge locked">🔒</span></div>
+  <div class="slabel">Level 4 — Pro</div>
+  <div class="sitem" data-lesson="propfirm"><span class="sicon">·</span>L16: Prop firm trading<span class="sbadge locked">🔒</span></div>
+  <div class="slabel">Tools</div>
+  <div class="sitem" data-page="riskcalc"><span class="sicon">⚖</span>Risk Calculator</div>
+  <div class="sitem" data-page="journal"><span class="sicon">📓</span>Trade Journal</div>
+  <div class="sitem" data-page="glossary"><span class="sicon">📚</span>Glossary</div>
+  <div class="sitem" data-page="calendar"><span class="sicon">📅</span>Econ Calendar</div>
+  <div class="sitem" data-page="quiz"><span class="sicon">✏</span>Quizzes</div>
+  <div class="sidebar-foot">
+    <div class="prog-label"><span>Progress</span><span id="pct-lbl">6%</span></div>
+    <div class="prog-track"><div class="prog-fill" id="main-prog" style="width:6%"></div></div>
+    <div class="xp-row">XP: <span class="xp-val" id="xp-lbl">120 / 2000</span></div>
+  </div>
+</nav>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<div class="main">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="tb-title">Dashboard</div>
+      <div class="topbar-crumb" id="tb-crumb">Home › <span>Overview</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="hdr-ticker"><span class="hdr-sym">EUR/USD</span><span id="h-eurusd">—</span><span id="h-eurusd-c" style="font-size:10px;margin-left:3px">—</span></div>
+      <div class="hdr-ticker"><span class="hdr-sym">BTC</span><span id="h-btc">—</span><span id="h-btc-c" style="font-size:10px;margin-left:3px">—</span></div>
+      <div class="hdr-ticker"><span class="hdr-sym">GOLD</span><span id="h-gold">—</span></div>
+      <div class="live-pill" id="api-pill"><div class="live-dot" id="api-dot" style="background:var(--text3)"></div><span id="api-txt" style="color:var(--text3)">Connecting</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:8px">
+        <span id="user-greeting" style="font-size:12px;color:var(--text3)"></span>
+        <button onclick="handleLogout()" style="font-size:11px;padding:4px 10px;border-radius:5px;background:transparent;border:1px solid var(--border);color:var(--text3);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGES -->
+  <div class="content">
+
+    <!-- ══════ DASHBOARD ══════ -->
+    <div id="page-dashboard" class="page active">
+      <div class="hero">
+        <div class="tag tag-gold" style="margin-bottom:14px">🎓 Professional Trading Academy · Real-Time Data</div>
+        <h1>MASTER THE <span>MARKETS</span></h1>
+        <p>From absolute zero to funded trader. Every lesson, quiz, risk tool, and live price feed you need — structured as a real professional curriculum. No fluff. No skipping steps.</p>
+        <div class="hero-btns">
+          <button class="btn btn-gold" onclick="loadLesson('intro')">▶ Start Lesson 1</button>
+          <button class="btn btn-outline" onclick="navTo('markets')">📊 Live Markets</button>
+          <button class="btn btn-outline" onclick="navTo('simulator')">🎮 Trade Simulator</button>
+        </div>
+      </div>
+
+      <div class="marquee-wrap"><div class="marquee-inner" id="marquee-inner"><span class="muted" style="padding:0 20px;font-size:12px">Fetching live prices...</span></div></div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Lessons</div><div class="stat-val">16</div><div class="stat-sub">Across 4 levels</div></div>
+        <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-val" id="s-done">1</div><div class="stat-sub">Keep pushing</div></div>
+        <div class="stat-card"><div class="stat-label">Quiz Avg</div><div class="stat-val" id="s-avg">—</div><div class="stat-sub">Take a quiz</div></div>
+        <div class="stat-card"><div class="stat-label">Level</div><div class="stat-val" style="font-size:16px;padding-top:6px">BEGINNER</div><div class="stat-sub">Level 1 of 4</div></div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">LIVE MARKET SNAPSHOT</div>
+        <div class="live-pill"><div class="live-dot"></div>Auto-refresh 15s</div>
+      </div>
+      <div class="grid-auto" id="dash-grid" style="margin-bottom:24px"></div>
+
+      <div class="section-title">CURRICULUM LEVELS</div>
+      <div class="levels-grid">
+        <div class="lvl-card cur" onclick="navTo('curriculum')">
+          <div class="lvl-accent" style="background:linear-gradient(90deg,#1D9E75,transparent)"></div>
+          <div class="lvl-tag">LEVEL 01 · ACTIVE</div>
+          <h3>BEGINNER</h3><div class="lvl-sub">Foundation — Markets, Charts, Risk</div>
+          <div class="chips"><span class="chip">What is trading</span><span class="chip">Markets</span><span class="chip">Charts</span><span class="chip">Risk</span><span class="chip">Brokers</span><span class="chip">Psychology</span></div>
+          <div class="lvl-footer"><span class="muted">📅 4–6 weeks</span><span class="tag tag-green">▶ Active</span></div>
+        </div>
+        <div class="lvl-card" onclick="navTo('curriculum')">
+          <div class="lvl-accent" style="background:linear-gradient(90deg,#185FA5,transparent)"></div>
+          <div class="lvl-tag">LEVEL 02 · LOCKED</div>
+          <h3>INTERMEDIATE</h3><div class="lvl-sub">Technical Mastery — Analysis, Strategies</div>
+          <div class="chips"><span class="chip">Tech analysis</span><span class="chip">Structure</span><span class="chip">S&D</span><span class="chip">Indicators</span></div>
+          <div class="lvl-footer"><span class="muted">📅 6–10 weeks</span><span class="tag tag-lock">🔒 Locked</span></div>
+        </div>
+        <div class="lvl-card" onclick="navTo('curriculum')">
+          <div class="lvl-accent" style="background:linear-gradient(90deg,#853808,transparent)"></div>
+          <div class="lvl-tag">LEVEL 03 · LOCKED</div>
+          <h3>ADVANCED</h3><div class="lvl-sub">Smart Money, ICT, Institutions</div>
+          <div class="chips"><span class="chip">SMC</span><span class="chip">ICT</span><span class="chip">Order blocks</span><span class="chip">Liquidity</span></div>
+          <div class="lvl-footer"><span class="muted">📅 8–12 weeks</span><span class="tag tag-lock">🔒 Locked</span></div>
+        </div>
+        <div class="lvl-card" onclick="navTo('curriculum')">
+          <div class="lvl-accent" style="background:linear-gradient(90deg,#993556,transparent)"></div>
+          <div class="lvl-tag">LEVEL 04 · LOCKED</div>
+          <h3>PROFESSIONAL</h3><div class="lvl-sub">Prop Firms, Systems, Case Studies</div>
+          <div class="chips"><span class="chip">Prop firms</span><span class="chip">Full system</span><span class="chip">Live analysis</span></div>
+          <div class="lvl-footer"><span class="muted">📅 12+ weeks</span><span class="tag tag-lock">🔒 Locked</span></div>
+        </div>
+      </div>
+
+      <div class="prog-section">
+        <div class="section-title" style="margin-bottom:14px">YOUR PROGRESS</div>
+        <div id="prog-list"></div>
+      </div>
+    </div>
+
+    <!-- ══════ LIVE MARKETS ══════ -->
+    <div id="page-markets" class="page">
+      <div class="mentor"><div class="mentor-av">TF</div><div class="mentor-txt"><strong>Live Data:</strong> Crypto from <strong>Binance public API</strong> (no key). Forex from <strong>open.er-api.com</strong> (free). Gold via Binance XAUUSDT futures. Refreshes every 15 seconds. These are real prices — learn to read them like a trader.</div></div>
+      <div class="tabs" id="mkt-tabs">
+        <div class="tab active" data-mktab="crypto">Crypto</div>
+        <div class="tab" data-mktab="forex">Forex</div>
+        <div class="tab" data-mktab="commodities">Commodities</div>
+        <div class="tab" data-mktab="indices">Indices</div>
+      </div>
+      <div class="grid-auto" id="mkt-grid" style="margin-bottom:20px"></div>
+      <div class="chart-panel">
+        <div class="chart-header">
+          <h3 id="chart-label">EUR/USD — Professional Chart</h3>
+          <span class="muted" style="font-size:11px">TradingView · Real candlesticks · All indicators included</span>
+          <div class="tf-group" style="margin-left:auto">
+            <button class="tf-btn active" onclick="switchTVSymbol('FX:EURUSD','EUR/USD')">EUR/USD</button>
+            <button class="tf-btn" onclick="switchTVSymbol('FX:GBPUSD','GBP/USD')">GBP/USD</button>
+            <button class="tf-btn" onclick="switchTVSymbol('FX:USDJPY','USD/JPY')">USD/JPY</button>
+            <button class="tf-btn" onclick="switchTVSymbol('TVC:GOLD','XAU/USD')">GOLD</button>
+            <button class="tf-btn" onclick="switchTVSymbol('BINANCE:BTCUSDT','BTC/USDT')">BTC</button>
+            <button class="tf-btn" onclick="switchTVSymbol('BINANCE:ETHUSDT','ETH/USDT')">ETH</button>
+          </div>
+        </div>
+        <div id="tv-chart-container" style="height:520px;border-radius:6px;overflow:hidden;"></div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3)">
+          💡 <strong style="color:var(--text2)">Pro tip:</strong> Use the toolbar inside the chart to add indicators (RSI, MACD, Moving Averages), draw trend lines, and change timeframes. This is the same chart professional traders use.
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ SIMULATOR ══════ -->
+    <div id="page-simulator" class="page">
+      <div class="mentor"><div class="mentor-av">TF</div><div class="mentor-txt"><strong>Trade Simulator:</strong> Practice entering and exiting trades with <strong>real live prices</strong>. No real money — but treat every trade as if it is. This is how professionals build discipline before going live.</div></div>
+      <div class="tabs" id="sim-tabs">
+        <div class="tab active" data-simtab="BTCUSDT">BTC/USDT</div>
+        <div class="tab" data-simtab="ETHUSDT">ETH/USDT</div>
+        <div class="tab" data-simtab="XAUUSDT">GOLD/USD</div>
+        <div class="tab" data-simtab="BNBUSDT">BNB/USDT</div>
+      </div>
+      <div class="sim-controls">
+        <div class="sim-ctrl-card">
+          <div class="sim-ctrl-title">Account Balance</div>
+          <div class="sim-pnl gold" id="sim-balance">$10,000.00</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">Demo Account · Paper Trading</div>
+        </div>
+        <div class="sim-ctrl-card">
+          <div class="sim-ctrl-title">Open P&L</div>
+          <div class="sim-pnl" id="sim-pnl" style="color:var(--text3)">No open trade</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px" id="sim-trade-info">—</div>
+        </div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:14px">
+        <div class="chart-header">
+          <h3 id="sim-chart-label">BTC/USDT — Simulator</h3>
+          <span id="sim-live-price" class="muted" style="font-family:'DM Mono',monospace;font-size:13px">—</span>
+          <div class="tf-group" style="margin-left:auto">
+            <button class="tf-btn active" data-simtf="1m">1M</button>
+            <button class="tf-btn" data-simtf="5m">5M</button>
+            <button class="tf-btn" data-simtf="15m">15M</button>
+          </div>
+        </div>
+        <canvas id="sim-chart" height="280"></canvas>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <div class="muted" style="margin-bottom:5px">Position Size (units)</div>
+          <input class="cinput" id="sim-size" type="number" value="0.01" step="0.01" min="0.001" style="width:100%">
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:5px">Stop Loss (price)</div>
+          <input class="cinput" id="sim-sl" type="number" step="any" placeholder="Optional" style="width:100%">
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:5px">Take Profit (price)</div>
+          <input class="cinput" id="sim-tp" type="number" step="any" placeholder="Optional" style="width:100%">
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:5px">Risk % (guide)</div>
+          <input class="cinput" id="sim-riskpct" type="number" value="1" step="0.5" min="0.1" max="10" style="width:100%" oninput="simCalcSize()">
+        </div>
+      </div>
+      <div class="sim-btns">
+        <button class="sim-btn-buy" onclick="simEnter('long')">▲ BUY / LONG</button>
+        <button class="sim-btn-sell" onclick="simEnter('short')">▼ SELL / SHORT</button>
+        <button class="sim-btn-close" onclick="simClose()">✕ Close Position</button>
+      </div>
+      <div style="margin-top:20px">
+        <div class="section-title" style="font-size:16px;margin-bottom:10px">Trade History</div>
+        <div class="sim-trade-log" id="sim-log"><div style="font-size:13px;color:var(--text3);padding:12px 0">No trades yet. Enter a position above.</div></div>
+      </div>
+    </div>
+
+    <!-- ══════ CURRICULUM ══════ -->
+    <div id="page-curriculum" class="page">
+      <div class="mentor"><div class="mentor-av">TF</div><div class="mentor-txt"><strong>Mentor:</strong> 16 core modules across 4 levels — expanding to all 35 as you progress. Every module must be understood before advancing. There are no shortcuts to professional-level trading.</div></div>
+      <div id="curr-list"></div>
+    </div>
+
+    <!-- ══════ LESSONS ══════ -->
+    <div id="page-lessons" class="page">
+      <div id="lesson-body"></div>
+    </div>
+
+    <!-- ══════ QUIZ ══════ -->
+    <div id="page-quiz" class="page">
+      <div class="tabs" id="quiz-tabs">
+        <div class="tab active" data-qtab="intro">Lesson 1</div>
+        <div class="tab" data-qtab="markets2">Lesson 2</div>
+        <div class="tab" data-qtab="charts">Lesson 3</div>
+        <div class="tab" data-qtab="riskbasics">Lesson 4</div>
+        <div class="tab" data-qtab="psychology">Lesson 7</div>
+      </div>
+      <div id="quiz-body"></div>
+    </div>
+
+    <!-- ══════ RISK CALC ══════ -->
+    <div id="page-riskcalc" class="page">
+      <div class="mentor"><div class="mentor-av">TF</div><div class="mentor-txt"><strong>Risk Management Calculator:</strong> Select any instrument and the live price auto-fills. Adjust your stop loss and take profit. The calculator shows your exact position size, dollar risk, R:R ratio, and potential profit — exactly how a hedge fund professional approaches every trade.</div></div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><h3>⚖ POSITION SIZE CALCULATOR</h3><span class="muted" style="margin-left:auto">Live price auto-fill</span></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <div>
+              <div class="calc-row"><label class="calc-label">Instrument</label>
+                <select class="cinput" id="r-instr" onchange="fillLivePrice()" style="flex:1">
+                  <option value="BTCUSDT">BTC/USDT</option><option value="ETHUSDT">ETH/USDT</option>
+                  <option value="XAUUSDT">GOLD/USDT</option><option value="BNBUSDT">BNB/USDT</option>
+                  <option value="SOLUSDT">SOL/USDT</option><option value="EURUSD">EUR/USD (Forex)</option>
+                  <option value="GBPUSD">GBP/USD (Forex)</option><option value="USDJPY">USD/JPY (Forex)</option>
+                </select>
+              </div>
+              <div class="calc-row"><label class="calc-label">Account Balance ($)</label><input class="cinput" id="r-bal" type="number" value="10000" oninput="calcRisk()"></div>
+              <div class="calc-row"><label class="calc-label">Risk % per trade</label><input class="cinput" id="r-pct" type="number" value="1" step="0.1" min="0.1" max="10" oninput="calcRisk()"></div>
+              <div class="calc-row"><label class="calc-label">Entry Price <span class="gold" id="live-note" style="font-size:10px">(live)</span></label><input class="cinput" id="r-entry" type="number" step="any" oninput="calcRisk()"></div>
+              <div class="calc-row"><label class="calc-label">Stop Loss Price</label><input class="cinput" id="r-sl" type="number" step="any" oninput="calcRisk()"></div>
+              <div class="calc-row"><label class="calc-label">Take Profit Price</label><input class="cinput" id="r-tp" type="number" step="any" oninput="calcRisk()"></div>
+            </div>
+            <div>
+              <div style="margin-bottom:14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3)">Results</div>
+              <div class="result-row"><span class="result-label">Max $ at risk</span><span class="result-val" id="rr-$">—</span></div>
+              <div class="result-row"><span class="result-label">Position size (units)</span><span class="result-val" id="rr-u">—</span></div>
+              <div class="result-row"><span class="result-label">Risk : Reward</span><span class="result-val" id="rr-rr">—</span></div>
+              <div class="result-row"><span class="result-label">Potential profit</span><span class="result-val" id="rr-p" style="color:var(--green)">—</span></div>
+              <div class="result-row"><span class="result-label">Breakeven win rate</span><span class="result-val" id="rr-be">—</span></div>
+              <div id="rr-warn" style="display:none;margin-top:10px;font-size:12px;color:var(--red);padding:10px;background:var(--red-bg);border-radius:6px">⚠ Risk above 2% is dangerous for beginners. Professional traders use 0.5–1%.</div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="info-box blue">
+            <strong>The 1% Rule:</strong> Risking 1% per trade on a $10,000 account = $100 risk. To blow your account, you'd need 100 consecutive losing trades. That's virtually impossible with any real system. At 10% risk, just 10 losses end your career. Professional traders survive by staying in the game.
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>📊 RISK LEVEL GUIDE</h3></div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="prog-row"><span style="font-size:12px;color:var(--text2);min-width:200px">0.5% — Ultra conservative</span><div class="prog-bar-wrap" style="flex:1"><div class="prog-bar-fill" style="width:10%;background:var(--green)"></div></div><span class="muted" style="min-width:60px;text-align:right;color:var(--green)">Safest</span></div>
+            <div class="prog-row"><span style="font-size:12px;color:var(--text2);min-width:200px">1.0% — Professional standard</span><div class="prog-bar-wrap" style="flex:1"><div class="prog-bar-fill" style="width:20%;background:var(--green)"></div></div><span class="muted" style="min-width:60px;text-align:right;color:var(--green)">Ideal</span></div>
+            <div class="prog-row"><span style="font-size:12px;color:var(--text2);min-width:200px">2.0% — Acceptable</span><div class="prog-bar-wrap" style="flex:1"><div class="prog-bar-fill" style="width:40%;background:var(--gold)"></div></div><span class="muted" style="min-width:60px;text-align:right;color:var(--gold)">Caution</span></div>
+            <div class="prog-row"><span style="font-size:12px;color:var(--text2);min-width:200px">5.0% — Reckless</span><div class="prog-bar-wrap" style="flex:1"><div class="prog-bar-fill" style="width:70%;background:var(--red)"></div></div><span class="muted" style="min-width:60px;text-align:right;color:var(--red)">Dangerous</span></div>
+            <div class="prog-row"><span style="font-size:12px;color:var(--text2);min-width:200px">10%+ — Gambling</span><div class="prog-bar-wrap" style="flex:1"><div class="prog-bar-fill" style="width:100%;background:var(--red)"></div></div><span class="muted" style="min-width:60px;text-align:right;color:var(--red)">Account killer</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ JOURNAL ══════ -->
+    <div id="page-journal" class="page">
+      <div class="mentor"><div class="mentor-av">TF</div><div class="mentor-txt"><strong>Trade Journal:</strong> Every professional trader journals every single trade. Over time, your journal reveals your edge, your weaknesses, and your best setups. Without a journal, you're flying blind. With one, you're a scientist studying your own performance.</div></div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><h3>📓 LOG A TRADE</h3></div>
+        <div class="card-body">
+          <div class="j-form-grid">
+            <input class="cinput" id="j-pair" placeholder="Pair (EUR/USD)">
+            <select class="cinput" id="j-dir"><option>Long (Buy)</option><option>Short (Sell)</option></select>
+            <input class="cinput" id="j-pnl" placeholder="P&L (e.g. +$240)">
+            <input class="cinput" id="j-date" type="date">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+            <input class="cinput" id="j-entry" type="number" step="any" placeholder="Entry price">
+            <input class="cinput" id="j-exit" type="number" step="any" placeholder="Exit price">
+            <select class="cinput" id="j-emotion"><option value="">Emotions (optional)</option><option>Confident</option><option>Fearful</option><option>Greedy</option><option>Patient</option><option>Impulsive</option><option>Disciplined</option></select>
+          </div>
+          <textarea class="cinput" id="j-notes" placeholder="Setup description. Why did you enter? What was your thesis? What did you learn?" style="width:100%;min-height:80px;resize:vertical;margin-bottom:10px"></textarea>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-gold" onclick="addJournal()">+ Log Trade</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportJournal()">Export CSV</button>
+          </div>
+        </div>
+      </div>
+      <div id="journal-stats" style="display:none;margin-bottom:16px"></div>
+      <div id="journal-list"></div>
+    </div>
+
+    <!-- ══════ GLOSSARY ══════ -->
+    <div id="page-glossary" class="page">
+      <div class="card">
+        <div class="card-header"><h3>📚 TRADING GLOSSARY</h3><span class="muted" style="margin-left:auto">34 essential terms</span></div>
+        <div class="card-body">
+          <input class="cinput" id="gloss-search" placeholder="Search any term..." oninput="filterGloss()" style="width:100%;margin-bottom:14px">
+          <div class="gloss-grid" id="gloss-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ ECONOMIC CALENDAR ══════ -->
+    <div id="page-calendar" class="page">
+      <div class="mentor"><div class="mentor-av">TF</div><div class="mentor-txt"><strong>Economic Calendar:</strong> High-impact events move the forex market by <strong>50–200+ pips</strong> in seconds. NFP (Non-Farm Payrolls), FOMC rate decisions, and CPI releases are the most powerful. <strong>Always check this before placing a trade.</strong> Red = high impact. Never trade blind into a red event.</div></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <h3>📅 LIVE ECONOMIC CALENDAR</h3>
+          <span class="muted" style="margin-left:auto">Real-time · All major currencies</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="tradingview-widget-container" style="height:620px">
+            <div class="tradingview-widget-container__widget"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
+            {
+              "colorTheme": "dark",
+              "isTransparent": true,
+              "width": "100%",
+              "height": "620",
+              "locale": "en",
+              "importanceFilter": "0,1",
+              "currencyFilter": "USD,EUR,GBP,JPY,CHF,AUD,NZD,CAD"
+            }
+            </script>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div class="card">
+          <div class="card-header"><h3>🔴 HIGH IMPACT</h3></div>
+          <div class="card-body">
+            <div style="font-size:13px;color:var(--text2);line-height:1.8">
+              <div style="margin-bottom:6px"><strong style="color:var(--text)">NFP</strong> — Non-Farm Payrolls (USD, monthly)</div>
+              <div style="margin-bottom:6px"><strong style="color:var(--text)">FOMC</strong> — Fed interest rate decision</div>
+              <div style="margin-bottom:6px"><strong style="color:var(--text)">CPI</strong> — Consumer Price Index (inflation)</div>
+              <div style="margin-bottom:6px"><strong style="color:var(--text)">GDP</strong> — Gross Domestic Product</div>
+              <div><strong style="color:var(--text)">Central Bank</strong> — BoE, ECB, BoJ rate decisions</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>📋 HOW TO USE</h3></div>
+          <div class="card-body">
+            <div style="font-size:13px;color:var(--text2);line-height:1.8">
+              <div style="margin-bottom:6px">1. Check calendar <strong style="color:var(--gold)">before market open</strong></div>
+              <div style="margin-bottom:6px">2. Note all red events for the day</div>
+              <div style="margin-bottom:6px">3. <strong style="color:var(--gold)">Avoid trading 15 min before/after</strong> high-impact events</div>
+              <div style="margin-bottom:6px">4. Watch for "Actual vs Forecast" — the difference moves the market</div>
+              <div>5. Better than expected = currency strengthens</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>⏰ SESSION TIMES</h3></div>
+          <div class="card-body">
+            <div style="font-size:13px;color:var(--text2);line-height:1.8">
+              <div style="margin-bottom:6px"><strong style="color:var(--blue)">Tokyo</strong> — 00:00–09:00 UTC</div>
+              <div style="margin-bottom:6px"><strong style="color:var(--gold)">London</strong> — 08:00–17:00 UTC <span style="color:var(--green);font-size:11px">(Highest volume)</span></div>
+              <div style="margin-bottom:6px"><strong style="color:var(--green)">New York</strong> — 13:00–22:00 UTC</div>
+              <div style="margin-bottom:6px"><strong style="color:var(--text3)">London+NY overlap</strong> — 13:00–17:00 UTC <span style="color:var(--gold);font-size:11px">★ Best</span></div>
+              <div style="color:var(--text3);font-size:11px">Most news released at 08:30 ET (13:30 UTC)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<div class="toast" id="toast"><span id="t-icon">🏆</span><span id="t-msg">Done!</span></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// AUTH & USER
+// ═══════════════════════════════════════════════
+function handleLogout() {
+  localStorage.removeItem('tf_token');
+  localStorage.removeItem('tf_user');
+  window.location.href = 'index.html';
+}
+
+function initUserGreeting() {
+  try {
+    const user = JSON.parse(localStorage.getItem('tf_user') || '{}');
+    const el = document.getElementById('user-greeting');
+    if (el && user.name) el.textContent = 'Hi, ' + user.name.split(' ')[0];
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════
+// CLOUD SYNC — Save & Load from backend
+// ═══════════════════════════════════════════════
+async function loadProgressFromCloud() {
+  try {
+    const data = await apiCall('/api/user/progress');
+    if (data.completed_lessons) completedLessons = new Set(data.completed_lessons);
+    if (data.xp) xp = data.xp;
+    if (data.quiz_scores) quizScores = data.quiz_scores;
+    updateXP();
+  } catch(e) { console.warn('Could not load progress from cloud'); }
+}
+
+async function saveProgressToCloud() {
+  try {
+    await apiCall('/api/user/progress', 'POST', {
+      completed_lessons: [...completedLessons],
+      xp,
+      quiz_scores: quizScores,
+    });
+  } catch(e) { console.warn('Could not save progress to cloud'); }
+}
+
+async function loadJournalFromCloud() {
+  try {
+    const data = await apiCall('/api/user/journal');
+    if (Array.isArray(data)) {
+      journalData = data.map(e => ({
+        id: e.id,
+        pair: e.pair,
+        dir: e.direction,
+        pnl: e.pnl,
+        entry: e.entry_price,
+        exit: e.exit_price,
+        emotion: e.emotion,
+        notes: e.notes,
+        date: e.trade_date,
+      }));
+      renderJournal();
+    }
+  } catch(e) { console.warn('Could not load journal from cloud'); }
+}
+
+async function saveJournalEntryToCloud(entry) {
+  try {
+    const saved = await apiCall('/api/user/journal', 'POST', {
+      pair: entry.pair,
+      direction: entry.dir,
+      pnl: entry.pnl,
+      entry_price: entry.entry || null,
+      exit_price: entry.exit || null,
+      emotion: entry.emotion || null,
+      notes: entry.notes || null,
+      trade_date: entry.date || new Date().toISOString().split('T')[0],
+    });
+    return saved.id;
+  } catch(e) { console.warn('Could not save journal entry to cloud'); }
+}
+
+
+let liveData = {};
+let forexRates = {};
+let priceChart = null;
+let simChart = null;
+let simState = { sym:'BTCUSDT', tf:'1m', balance:10000, position:null, trades:[] };
+let journalData = [];
+let quizScores = {};
+let xp = 120;
+let completedLessons = new Set(['intro']);
+let activeQuizId = 'intro';
+
+const BINANCE = 'https://api.binance.com/api/v3';
+const FOREX_API = 'https://open.er-api.com/v6/latest/USD';
+
+const CRYPTO_SYMBOLS = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','ADAUSDT','DOGEUSDT','AVAXUSDT','LINKUSDT','XAUUSDT'];
+const FOREX_LIST = [
+  {sym:'EURUSD',q:'EUR',label:'EUR/USD',desc:'Euro / US Dollar',inv:false},
+  {sym:'GBPUSD',q:'GBP',label:'GBP/USD',desc:'British Pound / USD',inv:false},
+  {sym:'USDJPY',q:'JPY',label:'USD/JPY',desc:'US Dollar / Yen',inv:true},
+  {sym:'USDCHF',q:'CHF',label:'USD/CHF',desc:'USD / Swiss Franc',inv:true},
+  {sym:'AUDUSD',q:'AUD',label:'AUD/USD',desc:'Aussie / USD',inv:false},
+  {sym:'USDCAD',q:'CAD',label:'USD/CAD',desc:'USD / Canadian Dollar',inv:true},
+  {sym:'NZDUSD',q:'NZD',label:'NZD/USD',desc:'Kiwi / USD',inv:false},
+];
+
+// ═══════════════════════════════════════════════
+// DATA FETCHING
+// ═══════════════════════════════════════════════
+async function fetchAll() {
+  try {
+    const [cRes, fRes] = await Promise.all([
+      fetch(`${BINANCE}/ticker/24hr?symbols=${JSON.stringify(CRYPTO_SYMBOLS)}`),
+      fetch(FOREX_API)
+    ]);
+    if (cRes.ok) {
+      const arr = await cRes.json();
+      arr.forEach(t => {
+        liveData[t.symbol] = {
+          price: +t.lastPrice, chg: +t.priceChangePercent,
+          high: +t.highPrice, low: +t.lowPrice,
+          vol: +t.quoteVolume, bid: +t.bidPrice, ask: +t.askPrice
+        };
+      });
+    }
+    if (fRes.ok) {
+      const j = await fRes.json();
+      forexRates = j.rates || {};
+    }
+    setApiStatus(true);
+    refreshUI();
+  } catch(e) {
+    setApiStatus(false);
+  }
+}
+
+function setApiStatus(ok) {
+  const dot = document.getElementById('api-dot');
+  const txt = document.getElementById('api-txt');
+  if (!dot) return;
+  dot.style.background = ok ? 'var(--green)' : 'var(--red)';
+  txt.style.color = ok ? 'var(--green)' : 'var(--red)';
+  txt.textContent = ok ? 'Live' : 'Retry...';
+}
+
+function getFX(sym) {
+  const fp = FOREX_LIST.find(f => f.sym === sym);
+  if (!fp || !forexRates[fp.q]) return null;
+  return fp.inv ? forexRates[fp.q] : 1 / forexRates[fp.q];
+}
+
+function fmt(n, d) {
+  if (n == null || isNaN(n)) return '—';
+  if (d !== undefined) return n.toFixed(d);
+  if (n >= 10000) return n.toLocaleString('en-US',{maximumFractionDigits:2});
+  if (n >= 100) return n.toFixed(2);
+  if (n >= 1) return n.toFixed(3);
+  return n.toFixed(5);
+}
+
+function fmtChg(n) {
+  if (n == null || isNaN(n)) return {t:'—', c:''};
+  return {t:(n>=0?'+':'')+n.toFixed(2)+'%', c: n>=0?'up':'dn'};
+}
+
+// ═══════════════════════════════════════════════
+// UI REFRESH
+// ═══════════════════════════════════════════════
+function refreshUI() {
+  updateTopbar();
+  updateMarquee();
+  renderDashGrid();
+  if (document.getElementById('page-markets').classList.contains('active')) {
+    renderMktGrid(document.querySelector('[data-mktab].active')?.dataset.mktab || 'crypto');
+  }
+  if (document.getElementById('page-simulator').classList.contains('active')) {
+    updateSimPnl();
+  }
+  if (document.getElementById('page-riskcalc').classList.contains('active')) {
+    fillLivePrice();
+  }
+}
+
+function updateTopbar() {
+  const eurusd = getFX('EURUSD');
+  const btc = liveData['BTCUSDT'];
+  const xau = liveData['XAUUSDT'];
+  if (eurusd) {document.getElementById('h-eurusd').textContent = eurusd.toFixed(4);}
+  if (btc) {
+    document.getElementById('h-btc').textContent = '$'+btc.price.toLocaleString('en-US',{maximumFractionDigits:0});
+    const c = fmtChg(btc.chg);
+    const el = document.getElementById('h-btc-c');
+    el.textContent = c.t; el.className = c.c;
+  }
+  if (xau) document.getElementById('h-gold').textContent = '$'+fmt(xau.price);
+}
+
+function updateMarquee() {
+  const items = [];
+  CRYPTO_SYMBOLS.forEach(s => {
+    const d = liveData[s];
+    if (!d) return;
+    const c = fmtChg(d.chg);
+    const name = s.replace('USDT','');
+    items.push(`<div class="mk"><span class="mk-n">${name}</span><span class="mk-p">${d.price>=1000?d.price.toLocaleString('en-US',{maximumFractionDigits:2}):fmt(d.price)}</span><span class="mk-c ${c.c}">${c.t}</span></div>`);
+  });
+  FOREX_LIST.forEach(fp => {
+    const p = getFX(fp.sym);
+    if (!p) return;
+    items.push(`<div class="mk"><span class="mk-n">${fp.label}</span><span class="mk-p">${p.toFixed(4)}</span><span class="mk-c" style="color:var(--text3)">FX</span></div>`);
+  });
+  const doubled = [...items,...items].join('');
+  const el = document.getElementById('marquee-inner');
+  if (el) el.innerHTML = doubled;
+}
+
+// ═══════════════════════════════════════════════
+// MARKET CARDS
+// ═══════════════════════════════════════════════
+function mkCard(name, price, chg, icon, sub, onclick) {
+  const c = fmtChg(chg);
+  const isUp = chg == null || chg >= 0;
+  const p = price != null ? (price>=1000?price.toLocaleString('en-US',{maximumFractionDigits:2}):fmt(price)) : null;
+  return `<div class="market-card" onclick="${onclick}">
+    <div class="mc-top"><span class="mc-name">${icon ? icon+' ':''}<b>${name}</b></span>
+      ${chg!=null?`<span class="mc-badge" style="background:${isUp?'rgba(46,204,142,.1)':'rgba(232,64,64,.1)'};color:${isUp?'var(--green)':'var(--red)'}">${c.t}</span>`:''}
+    </div>
+    <div class="mc-price ${isUp?'up':'dn'}">${p||'<div class="loading-sh"></div>'}</div>
+    <div class="mc-meta"><span class="mc-chg ${c.c}">${c.t}</span><span class="mc-vol">${sub||''}</span></div>
+  </div>`;
+}
+
+function renderDashGrid() {
+  const showcase = [
+    {s:'BTCUSDT',n:'Bitcoin',i:'₿',type:'c'},
+    {s:'ETHUSDT',n:'Ethereum',i:'Ξ',type:'c'},
+    {s:'XAUUSDT',n:'Gold (XAU)',i:'Au',type:'c'},
+    {s:'EURUSD',n:'EUR/USD',i:'€',type:'f'},
+    {s:'GBPUSD',n:'GBP/USD',i:'£',type:'f'},
+    {s:'SOLUSDT',n:'Solana',i:'◎',type:'c'},
+    {s:'BNBUSDT',n:'BNB',i:'B',type:'c'},
+    {s:'USDJPY',n:'USD/JPY',i:'¥',type:'f'},
+  ];
+  const el = document.getElementById('dash-grid');
+  if (!el) return;
+  el.innerHTML = showcase.map(item => {
+    if (item.type === 'c') {
+      const d = liveData[item.s];
+      const sub = d ? 'Vol: $'+abbr(d.vol) : '';
+      return mkCard(item.n, d?.price, d?.chg, item.i, sub, `loadChartSym('${item.s}')`);
+    } else {
+      const p = getFX(item.s);
+      return mkCard(item.n, p, null, item.i, 'Forex pair', '');
+    }
+  }).join('');
+}
+
+function renderMktGrid(tab) {
+  const el = document.getElementById('mkt-grid');
+  if (!el) return;
+  let cards = '';
+  if (tab === 'crypto') {
+    CRYPTO_SYMBOLS.filter(s=>s!=='XAUUSDT').forEach(s => {
+      const d = liveData[s];
+      cards += mkCard(s.replace('USDT','/USDT'), d?.price, d?.chg, '', d?'Vol: $'+abbr(d.vol):'', `loadChartSym('${s}')`);
+    });
+  } else if (tab === 'forex') {
+    FOREX_LIST.forEach(fp => {
+      const p = getFX(fp.sym);
+      cards += mkCard(fp.label, p, null, '', fp.desc, '');
+    });
+  } else if (tab === 'commodities') {
+    const xau = liveData['XAUUSDT'];
+    cards += mkCard('Gold (XAU/USD)', xau?.price, xau?.chg, '🥇', 'Via Binance XAUUSDT', `loadChartSym('XAUUSDT')`);
+    cards += `<div class="market-card" style="cursor:default;opacity:.7"><div class="mc-name" style="margin-bottom:8px">⚫ WTI Crude Oil</div><div style="font-size:12px;color:var(--text3);line-height:1.6">Oil requires a premium data provider. <br><a href="https://finnhub.io" target="_blank" style="color:var(--blue);font-size:11px">Free key at finnhub.io →</a></div></div>`;
+    cards += `<div class="market-card" style="cursor:default;opacity:.7"><div class="mc-name" style="margin-bottom:8px">⚪ Silver (XAG)</div><div style="font-size:12px;color:var(--text3)">Search "XAGUSDT" on Binance directly for live silver prices.</div></div>`;
+  } else if (tab === 'indices') {
+    ['S&P 500 (SPX)','NASDAQ 100','FTSE 100','DAX 40','Nikkei 225'].forEach(n => {
+      cards += `<div class="market-card" style="cursor:default"><div class="mc-name" style="margin-bottom:8px">${n}</div><div style="font-size:12px;color:var(--text3);line-height:1.6">Stock indices need a free API key.<br><a href="https://finnhub.io" target="_blank" style="color:var(--blue);font-size:11px">Free key: finnhub.io →</a></div></div>`;
+    });
+  }
+  el.innerHTML = cards;
+}
+
+function abbr(n) {
+  if (!n || isNaN(n)) return '—';
+  if (n >= 1e9) return (n/1e9).toFixed(1)+'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  return n.toFixed(0);
+}
+
+// ═══════════════════════════════════════════════
+// TRADINGVIEW PROFESSIONAL CHART
+// ═══════════════════════════════════════════════
+let tvWidget = null;
+
+function initTVChart(symbol, label) {
+  const container = document.getElementById('tv-chart-container');
+  if (!container) return;
+  container.innerHTML = '';
+  const inner = document.createElement('div');
+  inner.id = 'tv-chart-inner';
+  inner.style.height = '100%';
+  container.appendChild(inner);
+
+  // Update label
+  const lbl = document.getElementById('chart-label');
+  if (lbl) lbl.textContent = (label||symbol) + ' — Professional Chart';
+
+  // Highlight active button
+  document.querySelectorAll('.tf-group .tf-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tf-group .tf-btn').forEach(b => {
+    if(b.textContent.trim() === (label||symbol).split('/')[0].replace('XAU','GOLD')) b.classList.add('active');
+  });
+
+  try {
+    tvWidget = new TradingView.widget({
+      container_id: 'tv-chart-inner',
+      autosize: true,
+      symbol: symbol,
+      interval: '60',
+      timezone: 'Etc/UTC',
+      theme: 'dark',
+      style: '1',
+      locale: 'en',
+      toolbar_bg: '#111116',
+      enable_publishing: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      save_image: false,
+      allow_symbol_change: true,
+      backgroundColor: '#0A0A0C',
+      gridColor: 'rgba(201,168,76,0.04)',
+      studies: ['RSI@tv-basicstudies'],
+    });
+  } catch(e) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">⚠ TradingView chart requires internet connection.</div>';
+  }
+}
+
+function switchTVSymbol(symbol, label) {
+  // Highlight clicked button
+  document.querySelectorAll('.tf-group .tf-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  initTVChart(symbol, label);
+}
+
+async function loadChart(sym, tf, btn) {
+  // kept for simulator compatibility
+  document.querySelectorAll('[data-tf]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else document.querySelector(`[data-tf="${tf}"]`)?.classList.add('active');
+}
+
+
+  navTo('markets');
+  const tf = document.querySelector('[data-tf].active')?.dataset.tf || '1m';
+  loadChart(sym, tf, null);
+  document.getElementById('chart-label').textContent = sym.replace('USDT','/USDT') + ' — Price Chart';
+  document.querySelectorAll('[data-sym]').forEach(b => b.dataset.sym = sym);
+}
+
+async function loadChart(sym, tf, btn) {
+  document.querySelectorAll('[data-tf]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else document.querySelector(`[data-tf="${tf}"]`)?.classList.add('active');
+  const infoEl = document.getElementById('chart-info');
+  if (infoEl) infoEl.textContent = `Loading ${sym} ${tf.toUpperCase()}...`;
+  try {
+    const res = await fetch(`${BINANCE}/klines?symbol=${sym}&interval=${tf}&limit=120`);
+    const klines = await res.json();
+    drawLineChart('main-chart', klines, sym, tf, 'price-chart', infoEl);
+  } catch(e) {
+    if (infoEl) infoEl.innerHTML = `<span style="color:var(--red)">⚠ ${e.message}</span>`;
+  }
+}
+
+async function loadSimChart(sym, tf) {
+  try {
+    const res = await fetch(`${BINANCE}/klines?symbol=${sym}&interval=${tf}&limit=80`);
+    const klines = await res.json();
+    drawLineChart('sim-chart', klines, sym, tf, 'sim-chart-inst', null);
+  } catch(e) {}
+}
+
+function drawLineChart(canvasId, klines, sym, tf, inst, infoEl) {
+  const closes = klines.map(k => +k[4]);
+  const labels = klines.map(k => {
+    const d = new Date(k[0]);
+    if (tf==='1d') return d.toLocaleDateString('en-GB',{month:'short',day:'numeric'});
+    return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  });
+  const last = closes[closes.length-1];
+  const first = closes[0];
+  const isUp = last >= first;
+  const color = isUp ? '#2ECC8E' : '#E84040';
+
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,canvas.height||300);
+  grad.addColorStop(0, isUp ? 'rgba(46,204,142,.18)' : 'rgba(232,64,64,.18)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+  if (inst === 'price-chart') { if (priceChart) priceChart.destroy(); }
+  else { if (simChart) simChart.destroy(); }
+
+  const chart = new Chart(ctx, {
+    type:'line',
+    data:{labels, datasets:[{label:sym, data:closes, borderColor:color, backgroundColor:grad, borderWidth:1.5, pointRadius:0, pointHoverRadius:4, tension:.2, fill:true}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'#18181F',borderColor:'rgba(201,168,76,.3)',borderWidth:1,titleColor:'#C9A84C',bodyColor:'#9090A0',callbacks:{label:c=>'  $'+fmt(c.raw)}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#5A5A6A',font:{size:10},maxTicksLimit:10}},
+        y:{position:'right',grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#9090A0',font:{size:10},callback:v=>v>=1000?'$'+(v/1000).toFixed(1)+'k':'$'+fmt(v)}}
+      },
+      interaction:{mode:'nearest',axis:'x',intersect:false},
+      animation:{duration:300}
+    }
+  });
+
+  if (inst === 'price-chart') priceChart = chart;
+  else simChart = chart;
+
+  const chgPct = ((last-first)/first*100).toFixed(2);
+  if (infoEl) infoEl.innerHTML = `Last: <span style="color:${color};font-weight:600">$${fmt(last)}</span> &nbsp;|&nbsp; Range: <span style="color:${color}">${chgPct>=0?'+':''}${chgPct}%</span> &nbsp;|&nbsp; <span class="muted">120 candles · ${tf.toUpperCase()} · Binance</span>`;
+}
+
+// ═══════════════════════════════════════════════
+// SIMULATOR
+// ═══════════════════════════════════════════════
+function simCalcSize() {
+  const bal = 10000, pct = parseFloat(document.getElementById('sim-riskpct')?.value)||1;
+  const risk = bal*(pct/100);
+  const d = liveData[simState.sym];
+  if (!d) return;
+  const sl = parseFloat(document.getElementById('sim-sl')?.value)||0;
+  const entry = d.price;
+  if (sl && Math.abs(entry-sl) > 0) {
+    const size = risk / Math.abs(entry-sl);
+    document.getElementById('sim-size').value = size.toFixed(4);
+  }
+}
+
+function simEnter(dir) {
+  if (simState.position) { toast('⚠','Close current position first'); return; }
+  const d = liveData[simState.sym];
+  if (!d || !d.price) { toast('⚠','Waiting for live price...'); return; }
+  const size = parseFloat(document.getElementById('sim-size')?.value)||0.01;
+  const sl = parseFloat(document.getElementById('sim-sl')?.value)||null;
+  const tp = parseFloat(document.getElementById('sim-tp')?.value)||null;
+  simState.position = {dir, entry: d.price, size, sl, tp, time: new Date().toLocaleTimeString()};
+  toast(dir==='long'?'▲ BUY':'▼ SELL', `${dir.toUpperCase()} ${simState.sym} @ $${fmt(d.price)}`);
+  updateSimPnl();
+}
+
+function simClose() {
+  if (!simState.position) { toast('⚠','No open position'); return; }
+  const d = liveData[simState.sym];
+  const pos = simState.position;
+  const exitPrice = d?.price || pos.entry;
+  const pnlRaw = pos.dir === 'long' ? (exitPrice - pos.entry)*pos.size : (pos.entry - exitPrice)*pos.size;
+  simState.balance += pnlRaw;
+  simState.trades.unshift({...pos, exit:exitPrice, pnl:pnlRaw, closeTime:new Date().toLocaleTimeString()});
+  simState.position = null;
+  renderSimLog();
+  document.getElementById('sim-balance').textContent = '$'+simState.balance.toFixed(2);
+  document.getElementById('sim-pnl').textContent = 'No open trade';
+  document.getElementById('sim-pnl').style.color = 'var(--text3)';
+  document.getElementById('sim-trade-info').textContent = '—';
+  toast(pnlRaw>=0?'✅':'❌', `Closed: ${pnlRaw>=0?'+':''}$${pnlRaw.toFixed(2)}`);
+}
+
+function updateSimPnl() {
+  const pos = simState.position;
+  if (!pos) return;
+  const d = liveData[simState.sym];
+  if (!d) return;
+  const pnl = pos.dir==='long' ? (d.price-pos.entry)*pos.size : (pos.entry-d.price)*pos.size;
+  const el = document.getElementById('sim-pnl');
+  el.textContent = (pnl>=0?'+':'')+'$'+pnl.toFixed(2);
+  el.style.color = pnl>=0?'var(--green)':'var(--red)';
+  document.getElementById('sim-live-price').textContent = '$'+fmt(d.price);
+  document.getElementById('sim-trade-info').textContent = `${pos.dir.toUpperCase()} ${pos.size} @ $${fmt(pos.entry)} | ${pos.time}`;
+  // Auto close on SL/TP
+  if (pos.sl && ((pos.dir==='long'&&d.price<=pos.sl)||(pos.dir==='short'&&d.price>=pos.sl))) { toast('🛑','Stop loss hit!'); simClose(); }
+  if (pos.tp && ((pos.dir==='long'&&d.price>=pos.tp)||(pos.dir==='short'&&d.price<=pos.tp))) { toast('🎯','Take profit hit!'); simClose(); }
+}
+
+function renderSimLog() {
+  const el = document.getElementById('sim-log');
+  if (!el) return;
+  if (!simState.trades.length) { el.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:10px 0">No trades yet.</div>'; return; }
+  el.innerHTML = simState.trades.map(t => {
+    const c = t.pnl>=0?'var(--green)':'var(--red)';
+    return `<div class="sim-trade-row">
+      <span class="tag ${t.dir==='long'?'tag-green':'tag-red'}" style="font-size:9px">${t.dir.toUpperCase()}</span>
+      <span class="mono" style="font-size:11px">${simState.sym.replace('USDT','')} × ${t.size}</span>
+      <span class="mono" style="font-size:11px">$${fmt(t.entry)} → $${fmt(t.exit)}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:${c}">${t.pnl>=0?'+':''}$${t.pnl.toFixed(2)}</span>
+      <span class="muted">${t.closeTime}</span>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// RISK CALCULATOR
+// ═══════════════════════════════════════════════
+function fillLivePrice() {
+  const sym = document.getElementById('r-instr')?.value;
+  if (!sym) return;
+  let p = null;
+  if (liveData[sym]) p = liveData[sym].price;
+  else if (['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','USDCAD'].includes(sym)) p = getFX(sym);
+  if (!p) return;
+  const dec = p > 100 ? 2 : p > 1 ? 4 : 5;
+  document.getElementById('r-entry').value = p.toFixed(dec);
+  document.getElementById('r-sl').value = (p*(1-0.005)).toFixed(dec);
+  document.getElementById('r-tp').value = (p*(1+0.01)).toFixed(dec);
+  calcRisk();
+}
+
+function calcRisk() {
+  const bal=+document.getElementById('r-bal')?.value||0, pct=+document.getElementById('r-pct')?.value||1;
+  const entry=+document.getElementById('r-entry')?.value||0, sl=+document.getElementById('r-sl')?.value||0, tp=+document.getElementById('r-tp')?.value||0;
+  if (!bal||!entry||!sl) return;
+  const rDol=bal*(pct/100), slD=Math.abs(entry-sl), tpD=Math.abs(tp-entry);
+  const units=slD>0?rDol/slD:0, rr=slD>0?tpD/slD:0, profit=rDol*rr;
+  const be=rr>0?(1/(1+rr)*100):0;
+  document.getElementById('rr-$').textContent='$'+rDol.toFixed(2);
+  document.getElementById('rr-u').textContent=units>0?units.toFixed(4):'—';
+  document.getElementById('rr-rr').textContent=rr>0?'1 : '+rr.toFixed(2):'—';
+  document.getElementById('rr-p').textContent=profit>0?'$'+profit.toFixed(2):'—';
+  document.getElementById('rr-be').textContent=be>0?be.toFixed(1)+'% win rate needed':'—';
+  document.getElementById('rr-warn').style.display=pct>2?'block':'none';
+}
+
+// ═══════════════════════════════════════════════
+// JOURNAL
+// ═══════════════════════════════════════════════
+function addJournal() {
+  const pair=document.getElementById('j-pair')?.value?.trim();
+  if (!pair) {toast('⚠','Enter a pair'); return;}
+  journalData.unshift({
+    pair, dir:document.getElementById('j-dir')?.value,
+    pnl:document.getElementById('j-pnl')?.value||'—',
+    date:document.getElementById('j-date')?.value||new Date().toISOString().split('T')[0],
+    entry:document.getElementById('j-entry')?.value,
+    exit:document.getElementById('j-exit')?.value,
+    emotion:document.getElementById('j-emotion')?.value||'',
+    notes:document.getElementById('j-notes')?.value||''
+  });
+  document.getElementById('j-pair').value=''; document.getElementById('j-pnl').value='';
+  document.getElementById('j-notes').value=''; document.getElementById('j-entry').value=''; document.getElementById('j-exit').value='';
+  renderJournal(); toast('📓','Trade logged!');
+  xp+=20; updateXP();
+}
+
+function renderJournal() {
+  const el=document.getElementById('journal-list');
+  const statEl=document.getElementById('journal-stats');
+  if (!el) return;
+  if (!journalData.length) {el.innerHTML='<div style="font-size:13px;color:var(--text3);text-align:center;padding:28px">No trades yet. Log your first trade above.</div>'; return;}
+  // Stats
+  const wins=journalData.filter(e=>parseFloat(e.pnl)>0).length;
+  const totalPnl=journalData.reduce((s,e)=>s+(parseFloat(e.pnl)||0),0);
+  if (statEl) {
+    statEl.style.display='grid';
+    statEl.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px';
+    statEl.innerHTML=`
+      <div class="stat-card"><div class="stat-label">Total Trades</div><div class="stat-val">${journalData.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-val" style="color:${wins/journalData.length>=.5?'var(--green)':'var(--red)'}">${Math.round(wins/journalData.length*100)}%</div></div>
+      <div class="stat-card"><div class="stat-label">Total P&L</div><div class="stat-val" style="color:${totalPnl>=0?'var(--green)':'var(--red)'}">${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</div></div>`;
+  }
+  el.innerHTML=journalData.map(e=>{
+    const isL=e.dir?.includes('Long');
+    const pnlN=parseFloat(e.pnl);
+    const pnlC=pnlN>=0?'var(--green)':'var(--red)';
+    return `<div class="j-entry"><div class="j-head"><span class="j-pair">${e.pair}</span><span class="j-dir ${isL?'long':'short'}">${isL?'LONG':'SHORT'}</span>${e.emotion?`<span class="muted" style="font-size:10px;margin-left:4px">${e.emotion}</span>`:''}<span class="j-date">${e.date}</span></div>
+    ${e.entry||e.exit?`<div style="font-size:11px;color:var(--text3);margin-bottom:5px">Entry: ${e.entry||'—'} → Exit: ${e.exit||'—'}</div>`:''}
+    <div class="j-notes">${e.notes||'No notes.'}</div>
+    <div class="j-pnl" style="color:${pnlC}">${isNaN(pnlN)?e.pnl:((pnlN>=0?'+':'')+pnlN.toFixed(2))}</div></div>`;
+  }).join('');
+}
+
+function exportJournal() {
+  if (!journalData.length) {toast('⚠','No trades to export'); return;}
+  const csv=['Date,Pair,Direction,Entry,Exit,P&L,Emotions,Notes',...journalData.map(e=>`${e.date},${e.pair},"${e.dir}",${e.entry||''},${e.exit||''},${e.pnl},"${e.emotion}","${e.notes}"`)].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='trade-journal.csv'; a.click();
+  toast('📥','Journal exported!');
+}
+
+// ═══════════════════════════════════════════════
+// LESSONS
+// ═══════════════════════════════════════════════
+const LESSONS = {
+  intro:{
+    title:'LESSON 1 — WHAT IS TRADING?',sub:'Beginner · Module 1',
+    content:`
+      <div class="lesson-section"><h4>The Core Definition</h4>
+      <div class="lesson-text">Trading is the act of buying a financial instrument at one price and selling it at a higher price to generate profit — or selling it short at a higher price and buying it back cheaper. The difference between your entry and exit price, multiplied by your position size, equals your profit or loss. That's the entire business of trading in one sentence.</div></div>
+      <div class="lesson-section"><h4>Real-World Analogy</h4>
+      <div class="analogy"><strong>The Mango Market:</strong> You buy 10 mangoes at $1 each ($10 total). Tomorrow a shortage pushes the price to $2 each. You sell all 10 for $20 — netting $10 profit on a $10 investment. That's a 100% return. Financial trading is identical in principle, except the "mangoes" are currencies, company shares, gold, oil, or digital assets — and the scale is billions of dollars per day.</div></div>
+      <div class="lesson-section"><h4>The Six Asset Classes</h4>
+      <div class="lesson-text">Every financial instrument falls into one of six categories:</div>
+      <div class="table-wrap"><table><thead><tr><th>Asset Class</th><th>What you trade</th><th>Daily Volume</th><th>Hours</th></tr></thead><tbody>
+        <tr><td><strong>Forex</strong></td><td>Currency pairs (EUR/USD, GBP/JPY)</td><td>$7.5 trillion</td><td>24h/5d</td></tr>
+        <tr><td><strong>Stocks</strong></td><td>Company ownership shares (AAPL, TSLA)</td><td>~$400B</td><td>Exchange hours</td></tr>
+        <tr><td><strong>Crypto</strong></td><td>Digital assets (BTC, ETH, SOL)</td><td>$100B+</td><td>24/7/365</td></tr>
+        <tr><td><strong>Commodities</strong></td><td>Physical goods (Gold, Oil, Silver)</td><td>~$500B</td><td>Various</td></tr>
+        <tr><td><strong>Indices</strong></td><td>Baskets of stocks (S&P500, NASDAQ)</td><td>~$300B</td><td>Exchange hours</td></tr>
+        <tr><td><strong>Futures/Options</strong></td><td>Derivative contracts on future prices</td><td>$600B+</td><td>Various</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Who Moves Prices?</h4>
+      <div class="lesson-text">This is one of the most important things a retail trader must understand. Markets are NOT a level playing field. There is a strict hierarchy of participants, and the largest players set the direction:</div>
+      <div style="margin:14px 0">
+        <div class="tier-row"><span class="tier-n">T1</span><span class="tier-name" style="color:var(--red)">Central Banks</span><span class="tier-desc">Fed, ECB, BoE. Set interest rates. Print/destroy money. Move markets with a single announcement.</span><div class="tier-bar" style="width:120px;background:var(--red)"></div></div>
+        <div class="tier-row"><span class="tier-n">T2</span><span class="tier-name" style="color:var(--gold)">Commercial Banks</span><span class="tier-desc">Goldman Sachs, JP Morgan, Citi. Execute trillions daily. Create the liquidity retail traders swim in.</span><div class="tier-bar" style="width:95px;background:var(--gold)"></div></div>
+        <div class="tier-row"><span class="tier-n">T3</span><span class="tier-name" style="color:var(--blue)">Hedge Funds & Institutions</span><span class="tier-desc">Manage billions. Hunt retail stop losses. Create the price traps beginners fall into.</span><div class="tier-bar" style="width:70px;background:var(--blue)"></div></div>
+        <div class="tier-row"><span class="tier-n">T4</span><span class="tier-name" style="color:var(--text3)">Retail Traders (You)</span><span class="tier-desc">Smallest players. Most predictable behavior. Most exploited. The prey — until you learn the game.</span><div class="tier-bar" style="width:35px;background:var(--text3)"></div></div>
+      </div>
+      <div class="info-box blue"><strong>The key insight:</strong> Your goal as a retail trader is NOT to fight institutions — it's to identify what they're doing and follow them. By the end of this curriculum, you will know exactly how to read institutional footprints in the market.</div></div>
+      <div class="lesson-section"><h4>Why Do Most Traders Lose?</h4>
+      <div class="lesson-text">Studies and broker regulatory disclosures consistently show that 70–80% of retail traders lose money. This isn't because trading is impossible. It's because most people approach it like gambling rather than a skill-based profession. They have no written plan, no risk management rules, no understanding of market structure, and zero awareness of how institutions operate. This curriculum addresses all of that systematically.</div>
+      <div class="info-box red"><strong>The cold truth:</strong> If you open a live account before completing this curriculum — without a tested strategy, written trading plan, and clear risk rules — you are statistically likely to be in the 70–80% who lose. The curriculum exists to put you in the 20–30% who consistently profit.</div></div>`
+  },
+  markets2:{
+    title:'LESSON 2 — TYPES OF MARKETS',sub:'Beginner · Module 2',
+    content:`
+      <div class="lesson-section"><h4>Forex — The Largest Market On Earth</h4>
+      <div class="lesson-text">The Foreign Exchange (Forex) market trades over <strong>$7.5 trillion per day</strong> — more than all the world's stock markets combined. It operates 24 hours a day, 5 days a week, through four major trading sessions:</div>
+      <div class="table-wrap"><table><thead><tr><th>Session</th><th>GMT Hours</th><th>Key Pairs</th><th>Characteristics</th></tr></thead><tbody>
+        <tr><td>Sydney</td><td>21:00–06:00</td><td>AUD/USD, NZD/USD</td><td>Low volatility, quiet</td></tr>
+        <tr><td>Tokyo</td><td>00:00–09:00</td><td>USD/JPY, AUD/JPY</td><td>Asian pairs active</td></tr>
+        <tr><td>London</td><td>08:00–17:00</td><td>GBP/USD, EUR/GBP</td><td>Highest volume session</td></tr>
+        <tr><td>New York</td><td>13:00–22:00</td><td>EUR/USD, USD/CAD</td><td>USD pairs most active</td></tr>
+      </tbody></table></div>
+      <div class="analogy"><strong>Analogy:</strong> You fly to Europe with $1,000. You exchange it for €920 at the airport. When you return, the Euro has strengthened — €920 now buys $1,050. You made $50 profit just from a currency rate change. Forex traders do this at scale — managing positions of $100,000+ with leverage, hundreds of times a month.</div></div>
+      <div class="lesson-section"><h4>Currency Pairs — How Forex Works</h4>
+      <div class="lesson-text">In Forex, you always trade <strong>two currencies against each other</strong>. The first currency is the "base" and the second is the "quote". EUR/USD = 1.0850 means 1 Euro buys 1.0850 US Dollars. Pairs are categorized as:</div>
+      <div class="table-wrap"><table><thead><tr><th>Category</th><th>Definition</th><th>Examples</th><th>Liquidity</th></tr></thead><tbody>
+        <tr><td><strong>Majors</strong></td><td>USD paired with major currencies</td><td>EUR/USD, GBP/USD, USD/JPY</td><td>Highest</td></tr>
+        <tr><td><strong>Minors</strong></td><td>Major pairs without USD</td><td>EUR/GBP, GBP/JPY, EUR/JPY</td><td>High</td></tr>
+        <tr><td><strong>Exotics</strong></td><td>Major + emerging market currency</td><td>USD/TRY, EUR/ZAR</td><td>Low — wide spreads</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Stocks — Owning Pieces of Companies</h4>
+      <div class="lesson-text">A <strong>stock (share/equity)</strong> is a fractional ownership stake in a publicly listed company. When you buy one share of Apple (AAPL), you own a tiny percentage of Apple Inc. If Apple becomes more valuable, your share price rises. If it declines, your share falls. Unlike Forex, stock markets have set trading hours tied to their exchange.</div>
+      <div class="table-wrap"><table><thead><tr><th>Exchange</th><th>Location</th><th>Hours (Local)</th><th>Notable Stocks</th></tr></thead><tbody>
+        <tr><td>NYSE</td><td>New York, USA</td><td>9:30am – 4:00pm ET</td><td>JPM, KO, GE, XOM</td></tr>
+        <tr><td>NASDAQ</td><td>New York, USA</td><td>9:30am – 4:00pm ET</td><td>AAPL, TSLA, NVDA, AMZN</td></tr>
+        <tr><td>LSE</td><td>London, UK</td><td>8:00am – 4:30pm GMT</td><td>HSBC, BP, Unilever</td></tr>
+        <tr><td>TSE</td><td>Tokyo, Japan</td><td>9:00am – 3:30pm JST</td><td>Toyota, Sony, SoftBank</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Crypto — 24/7 Digital Assets</h4>
+      <div class="lesson-text">Cryptocurrencies are decentralized digital assets secured by cryptography and recorded on distributed blockchains. Unlike every other market, crypto never closes. Bitcoin (BTC) and Ethereum (ETH) are the dominant assets. The crypto market is characterized by extreme volatility — assets can move 10–50% in days. This makes it both high-opportunity and high-risk for beginners.</div>
+      <div class="info-box red"><strong>Beginner Warning:</strong> Because crypto is 24/7 and highly volatile, it is psychologically exhausting. Most beginners lose money in crypto not because the market is impossible to trade, but because they abandon risk management when prices move dramatically. Never risk money you cannot afford to lose — in ANY market, but especially crypto.</div></div>
+      <div class="lesson-section"><h4>Commodities & Indices</h4>
+      <div class="lesson-text"><strong>Commodities</strong> are physical goods traded on financial markets: Gold (XAU), Silver (XAG), Crude Oil (WTI/Brent), Natural Gas, Wheat, Corn. Gold is the most popular for retail traders — it's a traditional safe-haven asset that rises when economies are uncertain.<br><br><strong>Indices</strong> are baskets of stocks representing a broader market. The S&P 500 tracks the 500 largest US companies. Trading an index = trading the collective performance of those companies, with no single-stock risk. Indices are considered more stable than individual stocks.</div></div>`
+  },
+  charts:{
+    title:'LESSON 3 — READING CHARTS & CANDLESTICKS',sub:'Beginner · Module 3',
+    content:`
+      <div class="lesson-section"><h4>What is a Price Chart?</h4>
+      <div class="lesson-text">A price chart is a visual record of every price agreement between buyers and sellers over time. Think of it as the market's heartbeat — each data point shows exactly where buyers and sellers agreed on value at that specific moment. Learning to read charts is the single most important practical skill in trading. Everything else — indicators, patterns, strategies — is built on top of it.</div></div>
+      <div class="lesson-section"><h4>The Candlestick — Your Most Important Tool</h4>
+      <div class="lesson-text">Japanese candlestick charts are used by the vast majority of professional traders worldwide. Each candlestick communicates four data points for its time period: <strong>Open, High, Low, and Close (OHLC)</strong>. The body of the candle shows the distance between open and close. The wicks (thin lines) show the full range — the highest and lowest prices reached.</div>
+      <div style="background:var(--bg4);border-radius:8px;padding:20px;margin:14px 0">
+        <svg width="100%" viewBox="0 0 560 200" style="display:block">
+          <text x="80" y="20" text-anchor="middle" fill="#9090A0" font-family="DM Sans" font-size="12">Bullish Candle</text>
+          <line x1="80" y1="30" x2="80" y2="58" stroke="#2ECC8E" stroke-width="2.5"/>
+          <rect x="62" y="58" width="36" height="88" fill="#2ECC8E" rx="3"/>
+          <line x1="80" y1="146" x2="80" y2="175" stroke="#2ECC8E" stroke-width="2.5"/>
+          <text x="125" y="38" fill="#9090A0" font-family="DM Sans" font-size="10">← High (upper wick)</text>
+          <text x="125" y="67" fill="#2ECC8E" font-family="DM Sans" font-size="10">← Close (price ended here)</text>
+          <text x="125" y="138" fill="#2ECC8E" font-family="DM Sans" font-size="10">← Open (price started here)</text>
+          <text x="125" y="170" fill="#9090A0" font-family="DM Sans" font-size="10">← Low (lower wick)</text>
+          <text x="340" y="20" text-anchor="middle" fill="#9090A0" font-family="DM Sans" font-size="12">Bearish Candle</text>
+          <line x1="340" y1="30" x2="340" y2="52" stroke="#E84040" stroke-width="2.5"/>
+          <rect x="322" y="52" width="36" height="88" fill="#E84040" rx="3"/>
+          <line x1="340" y1="140" x2="340" y2="175" stroke="#E84040" stroke-width="2.5"/>
+          <text x="385" y="38" fill="#9090A0" font-family="DM Sans" font-size="10">← High (upper wick)</text>
+          <text x="385" y="60" fill="#E84040" font-family="DM Sans" font-size="10">← Open (price started higher)</text>
+          <text x="385" y="133" fill="#E84040" font-family="DM Sans" font-size="10">← Close (price fell to here)</text>
+          <text x="385" y="170" fill="#9090A0" font-family="DM Sans" font-size="10">← Low (lower wick)</text>
+        </svg>
+      </div></div>
+      <div class="lesson-section"><h4>Key Candlestick Patterns</h4>
+      <div class="table-wrap"><table><thead><tr><th>Pattern</th><th>What it looks like</th><th>What it signals</th><th>Reliability</th></tr></thead><tbody>
+        <tr><td><strong>Doji</strong></td><td>Tiny body, long wicks both sides</td><td>Indecision. Potential reversal.</td><td>Medium — needs confirmation</td></tr>
+        <tr><td><strong>Hammer</strong></td><td>Small body at top, long lower wick</td><td>Bullish reversal after downtrend</td><td>High at key support</td></tr>
+        <tr><td><strong>Shooting Star</strong></td><td>Small body at bottom, long upper wick</td><td>Bearish reversal after uptrend</td><td>High at key resistance</td></tr>
+        <tr><td><strong>Engulfing</strong></td><td>Large candle fully covers prior candle</td><td>Strong momentum reversal</td><td>High — especially on Daily</td></tr>
+        <tr><td><strong>Inside Bar</strong></td><td>Candle entirely within prior range</td><td>Consolidation, breakout incoming</td><td>Medium</td></tr>
+        <tr><td><strong>Marubozu</strong></td><td>Full-body candle, no wicks</td><td>Strong conviction move</td><td>High — pure momentum</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Timeframes — The Multi-Timeframe Approach</h4>
+      <div class="lesson-text">Every professional trader uses <strong>at least two timeframes simultaneously</strong>. The higher timeframe shows the overall trend and key levels. The lower timeframe provides the precise entry. This is called multi-timeframe analysis (MTFA).</div>
+      <div class="table-wrap"><table><thead><tr><th>Timeframe</th><th>Trading Style</th><th>Avg Hold Time</th><th>Best For</th></tr></thead><tbody>
+        <tr><td class="mono">1M – 5M</td><td>Scalping</td><td>Seconds – minutes</td><td>Expert only. Extreme discipline required.</td></tr>
+        <tr><td class="mono">15M – 1H</td><td>Day Trading</td><td>30 min – few hours</td><td>Intermediate+. Active market hours only.</td></tr>
+        <tr><td class="mono">4H – Daily</td><td>Swing Trading</td><td>1–7 days</td><td>✅ Best for beginners. Clear structure.</td></tr>
+        <tr><td class="mono">Weekly – Monthly</td><td>Position Trading</td><td>Weeks – months</td><td>✅ Low stress. Long-term macro thesis.</td></tr>
+      </tbody></table></div>
+      <div class="analogy"><strong>The Map Analogy:</strong> Using only a 1-minute chart to trade is like navigating a city using only a 1-metre view of the pavement. You can't see where you're going. The Daily chart is your city map — it shows direction. The 1-hour chart is your street view — it shows the details for your entry. Use both, always.</div></div>`
+  },
+  riskbasics:{
+    title:'LESSON 4 — BASIC RISK MANAGEMENT',sub:'Beginner · Module 4',
+    content:`
+      <div class="lesson-section"><h4>Why Risk Management is Everything</h4>
+      <div class="lesson-text">Here is the most important sentence in this entire curriculum: <strong>A bad strategy with good risk management can survive. A good strategy with bad risk management will fail.</strong> Risk management is the difference between a trader who lasts 10 years and one who blows their account in 3 months. Without it, even a 70% win rate can destroy you.</div>
+      <div class="analogy"><strong>The Casino Analogy:</strong> A casino doesn't need to win every game. It wins because its edge plays out over thousands of hands. If you risk everything on one hand, you could go broke before the edge works in your favour. Traders who risk too much per trade go broke before their edge has a chance to prove itself.</div></div>
+      <div class="lesson-section"><h4>The 1% Rule — Non-Negotiable for Beginners</h4>
+      <div class="lesson-text">Never risk more than 1–2% of your total account on any single trade. Here's why this matters:</div>
+      <div class="table-wrap"><table><thead><tr><th>Risk Per Trade</th><th>Account: $10,000</th><th>Consecutive losses to –50%</th><th>Verdict</th></tr></thead><tbody>
+        <tr><td>0.5%</td><td>$50/trade</td><td>100 losses</td><td style="color:var(--green)">Ultra safe</td></tr>
+        <tr><td>1.0%</td><td>$100/trade</td><td>69 losses</td><td style="color:var(--green)">Professional standard</td></tr>
+        <tr><td>2.0%</td><td>$200/trade</td><td>35 losses</td><td style="color:var(--gold)">Acceptable</td></tr>
+        <tr><td>5.0%</td><td>$500/trade</td><td>14 losses</td><td style="color:var(--red)">Dangerous</td></tr>
+        <tr><td>10%</td><td>$1,000/trade</td><td>7 losses</td><td style="color:var(--red)">Account killer</td></tr>
+        <tr><td>25%</td><td>$2,500/trade</td><td>3 losses</td><td style="color:var(--red)">Gambling</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Stop Loss — Your Best Friend</h4>
+      <div class="lesson-text">A stop loss is a pre-set price level at which your trade automatically closes to cap your loss. It is not optional. Every single trade must have a stop loss placed BEFORE you enter. Professional traders determine their stop loss first — then calculate their position size based on it.</div>
+      <div class="info-box green"><strong>The Process:</strong><br>1. Identify your entry price<br>2. Identify WHERE your thesis is wrong (this is your stop loss level)<br>3. Calculate how many units you can trade so that hitting the SL costs you exactly 1% of your account<br>4. Set your take profit target (minimum 1.5× your stop distance — 2:1 R:R or better)<br>5. Enter the trade</div></div>
+      <div class="lesson-section"><h4>Risk:Reward Ratio — The Math of Profitability</h4>
+      <div class="lesson-text">The Risk:Reward (R:R) ratio tells you how much you potentially gain relative to what you risk. A 1:2 R:R means you risk $1 to make $2. This has enormous implications for long-term profitability:</div>
+      <div class="table-wrap"><table><thead><tr><th>R:R Ratio</th><th>Win Rate Needed to Break Even</th><th>At 50% Win Rate, Result</th></tr></thead><tbody>
+        <tr><td>1:1</td><td>50%</td><td>Break even (minus spread/fees)</td></tr>
+        <tr><td>1:1.5</td><td>40%</td><td style="color:var(--gold)">Profitable</td></tr>
+        <tr><td>1:2</td><td>33%</td><td style="color:var(--green)">Comfortably profitable</td></tr>
+        <tr><td>1:3</td><td>25%</td><td style="color:var(--green)">Highly profitable</td></tr>
+      </tbody></table></div>
+      <div class="analogy"><strong>The Implication:</strong> With a 1:2 R:R ratio, you only need to win 33% of your trades to break even. Win 50% and you're significantly profitable. This is why professional traders obsess over R:R, not just win rate. A trader with a 40% win rate and 1:3 R:R destroys a trader with 70% win rate and 1:0.5 R:R.</div></div>`
+  },
+  brokers:{
+    title:'LESSON 5 — BROKERS & PLATFORMS',sub:'Beginner · Module 5',
+    content:`
+      <div class="lesson-section"><h4>What is a Broker?</h4>
+      <div class="lesson-text">A broker is the intermediary between you and the financial market. They provide you with a trading platform, execute your orders, and take a fee (through the spread or commission). Choosing the right broker is a critical decision that affects your costs, safety of funds, and trading conditions.</div></div>
+      <div class="lesson-section"><h4>Types of Brokers</h4>
+      <div class="table-wrap"><table><thead><tr><th>Type</th><th>How They Work</th><th>Pros</th><th>Cons</th></tr></thead><tbody>
+        <tr><td><strong>Market Maker (MM)</strong></td><td>Takes the other side of your trades</td><td>Fixed spreads, always liquid</td><td>Conflict of interest — they profit when you lose</td></tr>
+        <tr><td><strong>ECN (Electronic Communications Network)</strong></td><td>Connects you directly to liquidity providers</td><td>Raw spreads, no dealing desk</td><td>Commission per trade, variable spreads</td></tr>
+        <tr><td><strong>STP (Straight Through Processing)</strong></td><td>Routes orders directly to liquidity providers</td><td>No conflict of interest</td><td>Slightly wider spreads than ECN</td></tr>
+      </tbody></table></div>
+      <div class="info-box blue"><strong>Recommendation for Beginners:</strong> Use an ECN or STP broker. Market makers have an inherent conflict of interest. For Forex beginners: <strong>Pepperstone, IC Markets, or OANDA</strong> are globally respected, regulated brokers. Always verify regulation before depositing.</div></div>
+      <div class="lesson-section"><h4>How to Evaluate a Broker — Checklist</h4>
+      <div class="lesson-text">Before depositing a single dollar, verify all of the following:</div>
+      <div class="info-box green"><strong>✅ Regulation:</strong> Is it regulated by FCA (UK), ASIC (Australia), CySEC (EU), or NFA (USA)? Regulation = fund protection.<br><strong>✅ Spreads & Commissions:</strong> EUR/USD spread should be under 1 pip for ECN. Compare cost structures.<br><strong>✅ Leverage:</strong> Regulated brokers cap leverage. EU/UK: max 1:30 for majors. Offshore: up to 1:500.<br><strong>✅ Platform:</strong> Do they offer MetaTrader 4/5 or cTrader? These are industry standard.<br><strong>✅ Minimum Deposit:</strong> A good broker doesn't require a massive minimum. $100–500 is normal.<br><strong>✅ Withdrawal Speed:</strong> Read independent reviews on how fast withdrawals process. Red flag if slow.<br><strong>✅ Demo Account:</strong> Any legitimate broker offers unlimited demo trading. Start there — always.</div></div>
+      <div class="lesson-section"><h4>Trading Platforms</h4>
+      <div class="table-wrap"><table><thead><tr><th>Platform</th><th>Best For</th><th>Key Features</th></tr></thead><tbody>
+        <tr><td><strong>MetaTrader 4 (MT4)</strong></td><td>Forex beginners and intermediate</td><td>Universal. Huge indicator library. EA automation support.</td></tr>
+        <tr><td><strong>MetaTrader 5 (MT5)</strong></td><td>Multi-asset traders</td><td>Stocks, crypto, futures. More timeframes than MT4.</td></tr>
+        <tr><td><strong>TradingView</strong></td><td>Analysis & charting (free)</td><td>Best charting tool available. Free tier excellent. Web-based.</td></tr>
+        <tr><td><strong>cTrader</strong></td><td>ECN traders, scalpers</td><td>Level 2 pricing. Fast execution. Professional UI.</td></tr>
+        <tr><td><strong>Thinkorswim (ToS)</strong></td><td>US stocks & options</td><td>TD Ameritrade platform. Excellent for US markets.</td></tr>
+      </tbody></table></div></div>`
+  },
+  mistakes:{
+    title:'LESSON 6 — COMMON BEGINNER MISTAKES',sub:'Beginner · Module 6',
+    content:`
+      <div class="lesson-section"><h4>The 12 Mistakes That Destroy Beginners</h4>
+      <div class="lesson-text">Every one of these mistakes has a predictable pattern and a specific fix. Study them carefully — you will recognise some of your own tendencies here.</div></div>
+      <div class="lesson-section"><h4>Mistakes 1–4: Money & Risk</h4>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th>Mistake</th><th>Why It Kills You</th><th>The Fix</th></tr></thead><tbody>
+        <tr><td>1</td><td><strong>No stop loss</strong></td><td>"It'll come back" turns a –$50 loss into –$500</td><td>Every trade has a stop. No exceptions. Ever.</td></tr>
+        <tr><td>2</td><td><strong>Overleveraging</strong></td><td>1:500 leverage means a 0.2% move wipes you out</td><td>Use 1:10 or less as a beginner</td></tr>
+        <tr><td>3</td><td><strong>Risking too much</strong></td><td>5–10% per trade = 10 losses = blown account</td><td>Max 1% per trade. Always.</td></tr>
+        <tr><td>4</td><td><strong>Trading money you need</strong></td><td>Emotional attachment = emotional decisions = losses</td><td>Only trade capital you can afford to lose completely</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Mistakes 5–8: Psychology</h4>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th>Mistake</th><th>Why It Kills You</th><th>The Fix</th></tr></thead><tbody>
+        <tr><td>5</td><td><strong>Revenge trading</strong></td><td>Emotional trade after a loss = second loss guaranteed</td><td>Walk away after any loss. Take a 30-min break minimum.</td></tr>
+        <tr><td>6</td><td><strong>Overtrading</strong></td><td>More trades ≠ more profit. Spreads and fees compound.</td><td>Quality over quantity. Max 2–3 trades per day.</td></tr>
+        <tr><td>7</td><td><strong>Moving stop losses</strong></td><td>Turning a 1% loss into a 5% loss by "giving it more room"</td><td>Your stop is sacred. Set it and never move it against you.</td></tr>
+        <tr><td>8</td><td><strong>FOMO entries</strong></td><td>Chasing candles that already moved = entering at the top</td><td>If you missed it, you missed it. The market gives another setup.</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Mistakes 9–12: Strategy & Education</h4>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th>Mistake</th><th>Why It Kills You</th><th>The Fix</th></tr></thead><tbody>
+        <tr><td>9</td><td><strong>No trading plan</strong></td><td>Guessing is not a strategy</td><td>Write a trading plan before every session</td></tr>
+        <tr><td>10</td><td><strong>Buying signals/courses</strong></td><td>$500 signal service profits the seller, not you</td><td>Learn the skill yourself — no shortcut works long-term</td></tr>
+        <tr><td>11</td><td><strong>Ignoring news events</strong></td><td>NFP/FOMC can move EUR/USD 200 pips in seconds</td><td>Check the economic calendar every single morning</td></tr>
+        <tr><td>12</td><td><strong>Going live too soon</strong></td><td>Demo profits feel easy. Live trading is psychologically different.</td><td>6 months of profitable demo trading before going live. No exceptions.</td></tr>
+      </tbody></table></div></div>`
+  },
+  psychology:{
+    title:'LESSON 7 — TRADING PSYCHOLOGY',sub:'Beginner · Module 7',
+    content:`
+      <div class="lesson-section"><h4>Why Psychology Is 80% of Trading</h4>
+      <div class="lesson-text">Every professional trader who has reached consistent profitability will tell you the same thing: the strategy is the easy part. The hard part is the psychology. A technically perfect trading plan executed with emotional discipline produces profits. A perfect plan executed emotionally produces losses. The market does not reward intelligence or effort — it rewards <strong>emotional discipline and consistency</strong>.</div></div>
+      <div class="lesson-section"><h4>The 6 Emotions That Destroy Traders</h4>
+      <div class="table-wrap"><table><thead><tr><th>Emotion</th><th>How It Manifests</th><th>The Damage</th><th>The Antidote</th></tr></thead><tbody>
+        <tr><td><strong>Fear</strong></td><td>Not entering valid setups. Closing winners too early.</td><td>Missing high-probability trades. Underperforming your edge.</td><td>Trust your tested system. Journaling builds confidence.</td></tr>
+        <tr><td><strong>Greed</strong></td><td>Not taking profit. Moving TP further. Overleveraging.</td><td>Winners become losers. Account destroyed by one trade.</td><td>Pre-set your TP before entry. Honor it.</td></tr>
+        <tr><td><strong>Hope</strong></td><td>Holding losing trades hoping they recover.</td><td>Small losses become account-destroying losses.</td><td>Stop losses. If SL is hit — it's hit. Accept it and move on.</td></tr>
+        <tr><td><strong>Revenge</strong></td><td>Entering trades to "make back" losses immediately.</td><td>Double losses. Emotional spiral. Account collapse.</td><td>Walk away after any loss. No exceptions.</td></tr>
+        <tr><td><strong>FOMO</strong></td><td>Entering because a move "looks big already."</td><td>Buying tops, selling bottoms.</td><td>Your plan defines entries. If no setup = no trade.</td></tr>
+        <tr><td><strong>Overconfidence</strong></td><td>After a winning streak — oversizing, skipping rules.</td><td>One overleveraged trade wipes the streak's gains.</td><td>Rigid position sizing. Rules apply to winners and losers equally.</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Building a Trader's Mindset</h4>
+      <div class="lesson-text">Professional traders think in <strong>probabilities, not certainties</strong>. They know that no trade is guaranteed. They accept losses as part of the business — the same way a casino accepts that some players win jackpots. Over 100 trades, their edge plays out. Each individual trade's outcome is irrelevant. This is the core mindset shift that separates professionals from amateurs.</div>
+      <div class="analogy"><strong>The Baseball Analogy:</strong> Even the best hitter in baseball fails 7 out of 10 times. But they get paid $40 million a year because their 3-out-of-10 hits are home runs, their timing is consistent, and they show up every single day with the same process — regardless of yesterday's results. That is exactly the mindset of a professional trader.</div></div>
+      <div class="lesson-section"><h4>Daily Discipline Practices</h4>
+      <div class="info-box green"><strong>Before Every Trading Session:</strong><br>✅ Review the economic calendar — identify high-impact news events<br>✅ Write down your plan: which setups you're looking for and why<br>✅ Set maximum daily loss limit (e.g. 3% of account). If hit, stop for the day.<br>✅ Review yesterday's journal entry<br><br><strong>After Every Trading Session:</strong><br>✅ Journal every trade — entry, exit, emotion, outcome, lesson<br>✅ Did you follow your plan? If not, why not?<br>✅ Screen time: review what the market did that you missed<br>✅ Grade your discipline, not your P&L</div></div>`
+  },
+  leverage:{
+    title:'LESSON 8 — LEVERAGE & MARGIN',sub:'Beginner · Module 8',
+    content:`
+      <div class="lesson-section"><h4>What is Leverage?</h4>
+      <div class="lesson-text">Leverage is borrowed capital from your broker that allows you to control a position larger than your account balance. A leverage ratio of 1:100 means you control $100,000 with only $1,000 of your own money. This amplifies both gains AND losses proportionally. It is the single most misunderstood concept in retail trading — and the reason most beginners blow their accounts.</div>
+      <div class="analogy"><strong>Analogy:</strong> You have $1,000 and want to buy a $100,000 house. A mortgage (like leverage) lets you do it with $1,000 down. If the house goes up 5% to $105,000 — you made $5,000 on a $1,000 investment (500% return). But if the house drops 1% to $99,000 — you owe $99,000 but the house is worth less. That 1% move wiped out your entire deposit. Leverage works identically in trading.</div></div>
+      <div class="lesson-section"><h4>Leverage: The Numbers</h4>
+      <div class="table-wrap"><table><thead><tr><th>Leverage</th><th>Account: $1,000</th><th>Position Size</th><th>1% market move = </th><th>Verdict</th></tr></thead><tbody>
+        <tr><td>1:1</td><td>$1,000</td><td>$1,000</td><td>±$10 (±1%)</td><td style="color:var(--green)">No leverage. Safest.</td></tr>
+        <tr><td>1:10</td><td>$1,000</td><td>$10,000</td><td>±$100 (±10%)</td><td style="color:var(--green)">Acceptable for beginners</td></tr>
+        <tr><td>1:30</td><td>$1,000</td><td>$30,000</td><td>±$300 (±30%)</td><td style="color:var(--gold)">EU/UK regulated max for majors</td></tr>
+        <tr><td>1:100</td><td>$1,000</td><td>$100,000</td><td>±$1,000 (±100%)</td><td style="color:var(--red)">Wipes account on 1% move against you</td></tr>
+        <tr><td>1:500</td><td>$1,000</td><td>$500,000</td><td>±$5,000</td><td style="color:var(--red)">Destroyed by 0.2% adverse move</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>What is Margin?</h4>
+      <div class="lesson-text">Margin is the amount of money required in your account to open and maintain a leveraged position. At 1:100 leverage, trading 1 standard lot of EUR/USD ($100,000) requires $1,000 margin. Your broker reserves this as a deposit while your trade is open. If your losses eat into your margin (margin call level, usually 50–100%), the broker automatically closes your trade to prevent negative balance.</div>
+      <div class="info-box red"><strong>Margin Call Warning:</strong> A margin call is the broker forcibly closing your positions because your account can no longer support the open trades. This happens when beginners use high leverage and the market moves even slightly against them. The fix: use low leverage, never use all available margin, and always have a stop loss well before margin call territory.</div></div>`
+  },
+  ta:{
+    title:'LESSON 9 — TECHNICAL ANALYSIS',sub:'Intermediate · Module 9',
+    content:`
+      <div class="lesson-section"><h4>What is Technical Analysis?</h4>
+      <div class="lesson-text">Technical analysis (TA) is the study of historical price and volume data to identify patterns, trends, and key levels that help predict future price movement. The core assumption is that all known information — economic data, news, sentiment — is already reflected in the current price. Therefore, by studying price action itself, we can make probabilistic predictions about future movement.</div>
+      <div class="info-box blue"><strong>The Three Pillars of Technical Analysis:</strong><br>1. <strong>Price discounts everything</strong> — All known information is priced in. Study price, not just news.<br>2. <strong>Prices move in trends</strong> — A trending market is more likely to continue than reverse.<br>3. <strong>History repeats itself</strong> — Human psychology creates recurring patterns that appear across all timeframes and markets.</div></div>
+      <div class="lesson-section"><h4>Trend Analysis — The Foundation</h4>
+      <div class="lesson-text">Before placing any trade, the first question is always: <strong>what direction is price moving on my trading timeframe?</strong> Trends are defined by swing highs and swing lows:</div>
+      <div class="table-wrap"><table><thead><tr><th>Trend Type</th><th>Structure</th><th>Trading Bias</th></tr></thead><tbody>
+        <tr><td><strong>Uptrend</strong></td><td>Higher Highs (HH) + Higher Lows (HL)</td><td>Look for long (buy) setups only</td></tr>
+        <tr><td><strong>Downtrend</strong></td><td>Lower Highs (LH) + Lower Lows (LL)</td><td>Look for short (sell) setups only</td></tr>
+        <tr><td><strong>Range/Sideways</strong></td><td>Equal highs and equal lows</td><td>Buy support, sell resistance. No trend bias.</td></tr>
+        <tr><td><strong>Trend Change</strong></td><td>Break of market structure (BOS)</td><td>Shift bias. Look for reversal confirmations.</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>Key Technical Tools</h4>
+      <div class="lesson-text">These are the core tools of technical analysis. In Lesson 12, we cover indicators in depth. For now, understand the concepts:</div>
+      <div class="table-wrap"><table><thead><tr><th>Tool</th><th>What It Identifies</th><th>How To Use It</th></tr></thead><tbody>
+        <tr><td><strong>Support & Resistance</strong></td><td>Key price levels where buyers/sellers engage</td><td>Buy near support, sell near resistance. Look for bounces.</td></tr>
+        <tr><td><strong>Trendlines</strong></td><td>Direction and slope of price movement</td><td>Connect swing highs (downtrend) or swing lows (uptrend)</td></tr>
+        <tr><td><strong>Chart Patterns</strong></td><td>Recurring price formations (H&S, triangles, W/M)</td><td>Trade breakouts from confirmed patterns</td></tr>
+        <tr><td><strong>Moving Averages</strong></td><td>Average price over N periods — dynamic S/R</td><td>50 MA and 200 MA are key institutional levels</td></tr>
+        <tr><td><strong>Volume</strong></td><td>Confirms the conviction behind price moves</td><td>High volume breakout = valid. Low volume = suspect.</td></tr>
+      </tbody></table></div></div>`
+  },
+  smc:{
+    title:'LESSON 13 — SMART MONEY CONCEPTS (SMC)',sub:'Advanced · Module 13',
+    content:`
+      <div class="lesson-section"><h4>What is Smart Money?</h4>
+      <div class="lesson-text">Smart money refers to the institutional participants — central banks, tier-1 banks, hedge funds — who possess the capital, information, and tools to consistently profit from markets. They do NOT trade the same way retail traders do. They don't use retail indicators like RSI divergence or chart patterns from 1990s books. They operate based on <strong>liquidity, order flow, and engineered price movements.</strong></div></div>
+      <div class="lesson-section"><h4>How Institutions Actually Move Price</h4>
+      <div class="lesson-text">An institution needing to buy $1 billion of EUR/USD cannot simply enter one trade. That order alone would move the market significantly against them before it's filled. Instead, they engineer price to move to their desired level, fill their orders there, and then let the market move in their intended direction.</div>
+      <div class="analogy"><strong>The Warehouse Analogy:</strong> A supermarket chain wants to buy 1,000,000 units of a product. If they announce this, the manufacturer raises the price. So instead, they quietly spread orders over time, at various locations, masking their true intention. Institutional traders do exactly this — they hide their orders in areas of liquidity, use algorithms to fill over time, and create price manipulation to generate the conditions they need.</div></div>
+      <div class="lesson-section"><h4>Core SMC Concepts</h4>
+      <div class="table-wrap"><table><thead><tr><th>Concept</th><th>Definition</th><th>How to Trade It</th></tr></thead><tbody>
+        <tr><td><strong>Order Blocks (OB)</strong></td><td>Last opposing candle before a strong impulse move. Institutional orders were placed here.</td><td>Price returns to OB to fill remaining orders. Look for rejections.</td></tr>
+        <tr><td><strong>Fair Value Gap (FVG)</strong></td><td>Three-candle pattern where the middle candle moves so fast it leaves a gap (imbalance) in price.</td><td>Price fills FVGs with 75–80% probability before continuing. Trade the fill.</td></tr>
+        <tr><td><strong>Liquidity Sweep</strong></td><td>Price briefly breaks a swing high/low (where retail stop losses cluster) then reverses sharply.</td><td>Wait for sweep + confirmation candle. Enter in the opposite direction of the sweep.</td></tr>
+        <tr><td><strong>Break of Structure (BOS)</strong></td><td>Price breaks a previous swing high (bullish) or swing low (bearish) — confirming trend continuation.</td><td>BOS confirms the trend direction. Only trade in the BOS direction.</td></tr>
+        <tr><td><strong>Change of Character (ChoCH)</strong></td><td>First BOS against the prevailing trend. Signals potential reversal.</td><td>ChoCH is the earliest signal of a trend change. Shift bias after confirmed ChoCH.</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>The SMC Trade Setup</h4>
+      <div class="info-box green"><strong>Step-by-Step SMC Entry:</strong><br>1. Identify the HTF (higher timeframe) trend direction<br>2. Wait for a liquidity sweep at a key level (equal highs/lows, previous swing)<br>3. Look for a ChoCH or BOS on the LTF (lower timeframe) after the sweep<br>4. Identify the Order Block or FVG that was created during the sweep<br>5. Enter when price returns to that OB/FVG on the LTF<br>6. Stop loss: below/above the liquidity sweep point<br>7. Target: next liquidity pool (equal highs/lows, swing points, previous session high/low)</div></div>`
+  },
+  propfirm:{
+    title:'LESSON 16 — PROP FIRM TRADING',sub:'Professional · Module 16',
+    content:`
+      <div class="lesson-section"><h4>What is a Prop Firm?</h4>
+      <div class="lesson-text">A proprietary trading firm (prop firm) allocates its own capital to traders who pass an evaluation challenge. Instead of trading your own $1,000, you trade a funded account of $10,000–$200,000. You keep 70–90% of all profits. You risk none of your own money on the funded account — only the challenge fee (~$100–$500).</div>
+      <div class="info-box blue"><strong>The Business Model:</strong> Prop firms profit from two sources: challenge fees (most challenges fail, generating recurring revenue) and a cut of successful traders' profits. The best firms (FTMO, The5ers, MyForexFunds) run legitimate operations. Always research before paying any fee.</div></div>
+      <div class="lesson-section"><h4>How Challenges Work</h4>
+      <div class="table-wrap"><table><thead><tr><th>Stage</th><th>Typical Rules</th><th>Duration</th></tr></thead><tbody>
+        <tr><td><strong>Phase 1</strong></td><td>Hit 8–10% profit target. Max daily drawdown 5%. Max total drawdown 10%.</td><td>30 days (unlimited at some firms)</td></tr>
+        <tr><td><strong>Phase 2</strong></td><td>Hit 5% profit target. Same drawdown rules.</td><td>60 days</td></tr>
+        <tr><td><strong>Funded</strong></td><td>No profit target. Maintain drawdown rules. Get paid monthly.</td><td>Ongoing</td></tr>
+      </tbody></table></div></div>
+      <div class="lesson-section"><h4>The Rules That Trip Most Traders</h4>
+      <div class="info-box red"><strong>⚠ Common Disqualifications:</strong><br>❌ <strong>Daily drawdown breach:</strong> Losing more than 5% of starting balance in one day. The most common fail reason.<br>❌ <strong>News trading violations:</strong> Some firms ban holding trades through major news events (NFP, FOMC).<br>❌ <strong>Weekend holding:</strong> Some firms require positions closed by Friday.<br>❌ <strong>Overleveraging:</strong> Using full available leverage on one trade — one bad candle triggers drawdown breach.<br>❌ <strong>Revenge trading:</strong> Trying to recover from a bad day. One emotional session can end the challenge.</div></div>
+      <div class="lesson-section"><h4>Recommended Prop Firms (Research Independently)</h4>
+      <div class="table-wrap"><table><thead><tr><th>Firm</th><th>Accounts</th><th>Profit Split</th><th>Notes</th></tr></thead><tbody>
+        <tr><td>FTMO</td><td>$10K–$200K</td><td>80–90%</td><td>Most established. Strict but fair.</td></tr>
+        <tr><td>The5ers</td><td>$6K–$100K</td><td>50–100%</td><td>Beginner-friendly options available.</td></tr>
+        <tr><td>Funded Trader</td><td>$25K–$300K</td><td>80–90%</td><td>Flexible challenge rules.</td></tr>
+        <tr><td>MyFundedFX</td><td>$10K–$200K</td><td>85%</td><td>Good reputation. Instant funding option.</td></tr>
+      </tbody></table></div>
+      <div class="info-box blue"><strong>Before attempting any challenge:</strong> You should have at minimum 6 months of consistently profitable trading on a personal account. A funded account with strict rules is harder than a personal account — it requires technical skill AND flawless emotional discipline simultaneously. Do not skip the progression.</div></div>`
+  }
+};
+
+function renderLesson(id) {
+  const L = LESSONS[id];
+  if (!L) { toast('⚠','Lesson coming soon!'); return; }
+  navTo('lessons');
+  completedLessons.add(id);
+  xp += 50; updateXP();
+  renderProgList();
+  const lessonOrder = Object.keys(LESSONS);
+  const idx = lessonOrder.indexOf(id);
+  const prevId = idx > 0 ? lessonOrder[idx-1] : null;
+  const nextId = idx < lessonOrder.length-1 ? lessonOrder[idx+1] : null;
+
+  // Live price box
+  let liveBox = '';
+  const btc = liveData['BTCUSDT'], eth = liveData['ETHUSDT'], xau = liveData['XAUUSDT'];
+  const eurusd = getFX('EURUSD');
+  if (btc || eurusd) {
+    liveBox = `<div class="info-box green" style="margin-bottom:16px"><strong style="color:var(--green)">📡 Live Prices Right Now:</strong><br>`;
+    if(btc){const c=fmtChg(btc.chg);liveBox+=`<strong>BTC:</strong> $${btc.price.toLocaleString('en-US',{maximumFractionDigits:2})} <span class="${c.c}">${c.t}</span> &nbsp;`;}
+    if(eth){const c=fmtChg(eth.chg);liveBox+=`<strong>ETH:</strong> $${fmt(eth.price)} <span class="${c.c}">${c.t}</span> &nbsp;`;}
+    if(xau){const c=fmtChg(xau.chg);liveBox+=`<strong>GOLD:</strong> $${fmt(xau.price)} <span class="${c.c}">${c.t}</span> &nbsp;`;}
+    if(eurusd) liveBox+=`<strong>EUR/USD:</strong> ${eurusd.toFixed(4)}`;
+    liveBox+=`<br><span style="font-size:10px;color:var(--text3)">Real-time — Binance + open.er-api.com</span></div>`;
+  }
+
+  const hw = getHomework(id);
+  document.getElementById('lesson-body').innerHTML = `
+    <div class="mentor"><div class="mentor-av">TF</div><div class="mentor-txt"><strong>Mentor:</strong> Read every section fully before taking the quiz. Real market data is embedded in this lesson. After completing, quiz yourself — don't move on until you score ≥70%.</div></div>
+    <div class="card">
+      <div class="card-header"><h3>${L.title}</h3><span class="tag tag-gold" style="margin-left:auto">${L.sub}</span></div>
+      <div class="card-body lesson-wrap">
+        ${liveBox}
+        ${L.content}
+        ${hw}
+        <div class="divider"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn btn-gold" onclick="navTo('quiz');loadQuiz('${id}')">Take Quiz for This Lesson →</button>
+          ${nextId?`<button class="btn btn-outline" onclick="renderLesson('${nextId}')">Next Lesson →</button>`:''}
+          ${prevId?`<button class="btn btn-ghost btn-sm" onclick="renderLesson('${prevId}')">← Previous</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="navTo('simulator')">🎮 Practice in Simulator</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function getHomework(id) {
+  const hw = {
+    intro:['Look up the live prices of EUR/USD, BTC, Gold, and Apple on this site right now. Write them down.','Check the same prices tomorrow and note what changed. Guess why.','Open a free demo account at OANDA, IC Markets, or Pepperstone — this week.','Read about one major market event from this week in financial news.'],
+    markets2:['List the opening hours for Forex, US stocks, and crypto markets.','Name 5 Forex pairs, 3 stock tickers, and 3 crypto coins you want to study.','Visit Forex Factory (forexfactory.com) and find 3 upcoming high-impact events this week.'],
+    charts:['Open TradingView.com (free). Find EUR/USD. Switch between 1M, 1H, and Daily timeframes.','Identify one bullish and one bearish candle. What do their wicks tell you about the battle between buyers and sellers?','On the EUR/USD Daily chart: identify whether price is in an uptrend, downtrend, or range right now. State your evidence.'],
+    riskbasics:['Open the Risk Calculator on this site. Enter a $10,000 account, 1% risk, and calculate for BTCUSDT.','For a trade with entry 1.0850, SL 1.0800, TP 1.0950 — what is the R:R? Is this acceptable?','Write your personal maximum daily loss rule. What is the amount in dollars where you will stop trading for the day?'],
+    psychology:['Write a list of 3 emotions you\'ve felt when thinking about money or making/losing money. How might these affect your trading?','After your next demo trade, write a journal entry about how you felt during the trade — not just the outcome.','Read about "loss aversion" in behavioral economics. How does it explain why traders hold losing trades too long?'],
+  };
+  const items = hw[id] || hw.intro;
+  return `<div class="hw-box"><h4>📋 Homework — Complete Before Next Lesson</h4>${items.map((t,i)=>`<div class="hw-item"><div class="hw-chk" id="hw-${id}-${i}" onclick="toggleHW('${id}',${i})"></div>${t}</div>`).join('')}</div>`;
+}
+
+function toggleHW(id,i){const e=document.getElementById(`hw-${id}-${i}`);if(!e)return;e.classList.toggle('done');e.textContent=e.classList.contains('done')?'✓':'';}
+
+// ═══════════════════════════════════════════════
+// QUIZ
+// ═══════════════════════════════════════════════
+const QUIZZES = {
+  intro:{title:'QUIZ — LESSON 1: WHAT IS TRADING?',qs:[
+    {q:'What is the primary goal of a trade?',o:['Predict prices perfectly','Buy low and sell high (or sell high and buy low) for profit','Own shares of companies forever','Store value safely'],a:1,e:'Trading profits from price movement. Buying cheaper than you sell (or selling higher than you buy back). The difference × position size = profit or loss.'},
+    {q:'Which participant tier has the MOST influence on price direction?',o:['Retail traders','Hedge funds','Commercial banks','Central banks'],a:3,e:'Central banks (Fed, ECB, BoE) set interest rates and monetary policy — the biggest macro drivers. A single Fed announcement can move USD pairs 200+ pips instantly.'},
+    {q:'More sellers than buyers at this moment means price will:',o:['Go up','Stay exactly flat','Go down','Become random'],a:2,e:'Excess supply drives price down. Sellers compete for buyers by lowering their ask price — market price falls. This is the bedrock of supply and demand.'},
+    {q:'Approximately what percentage of retail Forex/CFD traders lose money?',o:['20–30%','40–50%','55–65%','70–80%'],a:3,e:'Regulatory disclosures from EU/UK brokers consistently show 70–80%+ of retail accounts lose. The fix: a structured curriculum, risk management, and a tested edge.'},
+    {q:'Which of these is NOT one of the six main asset classes?',o:['Forex','Real estate','Commodities','Indices'],a:1,e:'Real estate is a distinct asset class not traded on standard financial exchanges the way Forex, stocks, crypto, commodities, indices, and futures/options are.'},
+  ]},
+  markets2:{title:'QUIZ — LESSON 2: TYPES OF MARKETS',qs:[
+    {q:'What is the approximate daily trading volume of the Forex market?',o:['$400 billion','$2 trillion','$7.5 trillion','$500 billion'],a:2,e:'Forex is the world\'s largest market at ~$7.5 trillion per day — 20× larger than all global stock markets combined.'},
+    {q:'EUR/USD = 1.0850 means:',o:['1 USD buys 1.0850 EUR','1 EUR buys 1.0850 USD','EUR is stronger by 0.0850','The Euro fell by 8.5%'],a:1,e:'The base currency (EUR) is always priced in terms of the quote currency (USD). EUR/USD 1.0850 = 1 Euro buys 1.0850 US Dollars.'},
+    {q:'Which asset class trades 24 hours a day, 7 days a week?',o:['Stocks','Forex','Commodities','Cryptocurrency'],a:3,e:'Crypto never closes — 24/7/365. Forex is 24/5. Stock markets operate during exchange business hours only.'},
+    {q:'A "safe haven" asset that rises in times of economic uncertainty is:',o:['Bitcoin','Tech stocks','Gold','Oil'],a:2,e:'Gold (XAU) has historically served as a safe haven — investors flock to it during crises, recessions, and geopolitical uncertainty, driving its price up.'},
+  ]},
+  charts:{title:'QUIZ — LESSON 3: READING CHARTS',qs:[
+    {q:'A green (bullish) candlestick means:',o:['The open price was above the close','The close price was above the open','Volume was high during that period','The overall trend is bullish'],a:1,e:'Green/bullish = closing price HIGHER than opening price. Buyers won the battle during that time period — demand exceeded supply.'},
+    {q:'The "wick" on a candlestick shows:',o:['The opening price','The average price','The highest and lowest prices reached','The spread'],a:2,e:'Wicks show the full price range — upper wick = highest price hit, lower wick = lowest price hit — beyond the open/close body of the candle.'},
+    {q:'Which timeframe is most recommended for absolute beginners?',o:['1-minute scalping','4-hour and Daily swing trading','15-minute day trading','Tick charts'],a:1,e:'4H and Daily charts are best for beginners — clear structure, less noise, no need to watch screens constantly, and setups take days to develop (reducing emotional decisions).'},
+    {q:'In multi-timeframe analysis, the higher timeframe is used for:',o:['Entry signals','Identifying overall trend and key levels','Scalping entries','Calculating spreads'],a:1,e:'The higher timeframe (Daily/Weekly) provides the macro context — trend direction and key support/resistance. The lower timeframe (1H/4H) provides the precise entry trigger.'},
+  ]},
+  riskbasics:{title:'QUIZ — LESSON 4: RISK MANAGEMENT',qs:[
+    {q:'What is the professional standard maximum risk per trade?',o:['5–10%','3–5%','1–2%','0.1%'],a:2,e:'1–2% per trade is the professional standard. At 1%, you need 69 consecutive losses to halve a $10,000 account — virtually impossible with any real system.'},
+    {q:'Your account: $5,000. Risk: 1%. Entry: $100. SL: $95. What is your position size?',o:['10 units','50 units','100 units','500 units'],a:0,e:'Risk = $5,000 × 1% = $50. SL distance = |$100 - $95| = $5. Position size = $50 / $5 = 10 units.'},
+    {q:'A trade has 1:2 R:R. What win rate do you need just to break even?',o:['50%','40%','33%','25%'],a:2,e:'Break-even win rate = 1/(1+R:R) = 1/(1+2) = 33.3%. Win more than 33% of your 1:2 R:R trades and you are profitable.'},
+    {q:'A stop loss should be placed:',o:['At a round number','As tight as possible','Where your trading thesis is proven wrong','At the same distance every trade'],a:2,e:'The stop loss should be placed where the market tells you your analysis was wrong — not at an arbitrary distance. The position size is then adjusted to ensure this level risks exactly 1%.'},
+  ]},
+  psychology:{title:'QUIZ — LESSON 7: PSYCHOLOGY',qs:[
+    {q:'After a losing trade, the most dangerous emotional response is:',o:['Taking a break','Reviewing what went wrong','Entering a new trade immediately to "make it back"','Journaling the trade'],a:2,e:'Revenge trading — entering immediately after a loss to recover — is one of the most destructive behaviors. Losses breed emotional state, not analytical clarity. Walk away and return fresh.'},
+    {q:'Professional traders think in terms of:',o:['Individual trade certainties','Guaranteed setups','Probabilities over many trades','Intuition and gut feel'],a:2,e:'Professional traders know that no single trade is certain. They focus on executing a proven edge over hundreds of trades, knowing the statistical outcome will be positive. Each individual trade result is largely irrelevant.'},
+    {q:'Which trading emotion causes traders to NOT take valid setups?',o:['Greed','Fear','Overconfidence','Boredom'],a:1,e:'Fear causes paralysis — not entering valid setups because of anxiety about losing. The cure is a tested system you trust, and a journal that builds confidence through proof of your edge.'},
+  ]},
+};
+
+let selAnswers = {};
+
+function loadQuiz(id) {
+  if (id) activeQuizId = id;
+  const qEl = document.querySelector(`[data-qtab="${activeQuizId}"]`);
+  document.querySelectorAll('[data-qtab]').forEach(t=>t.classList.remove('active'));
+  if(qEl) qEl.classList.add('active');
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const Q = QUIZZES[activeQuizId] || QUIZZES.intro;
+  selAnswers = {};
+  let html = `<div class="quiz-card"><h4>${Q.title}</h4><p class="muted" style="margin-bottom:18px">Answer all questions carefully. Your mentor explains every mistake in detail after submission.</p>`;
+  Q.qs.forEach((q,qi)=>{
+    html+=`<div class="quiz-q"><div class="quiz-q-text"><span class="mono gold" style="font-size:10px">Q${qi+1}</span> — ${q.q}</div><div class="quiz-opts">`;
+    q.o.forEach((opt,oi)=>{html+=`<div class="qopt" id="qo-${qi}-${oi}" onclick="selQ(${qi},${oi},${q.o.length})"><div class="qcircle" id="qc-${qi}-${oi}"></div>${opt}</div>`;});
+    html+=`</div></div>`;
+  });
+  html+=`<button class="quiz-submit" onclick="submitQuiz()">Submit Answers</button><div class="quiz-result" id="quiz-res"></div></div>`;
+  document.getElementById('quiz-body').innerHTML = html;
+}
+
+function selQ(qi,oi,total){
+  for(let i=0;i<total;i++){const e=document.getElementById(`qo-${qi}-${i}`);const c=document.getElementById(`qc-${qi}-${i}`);if(e){e.classList.remove('sel');c.textContent='';}}
+  const e=document.getElementById(`qo-${qi}-${oi}`);const c=document.getElementById(`qc-${qi}-${oi}`);
+  if(e){e.classList.add('sel');c.textContent='●';}
+  selAnswers[qi]=oi;
+}
+
+function submitQuiz(){
+  const Q=QUIZZES[activeQuizId]||QUIZZES.intro;
+  let correct=0;
+  Q.qs.forEach((q,qi)=>{
+    const sel=selAnswers[qi];
+    q.o.forEach((_,oi)=>{
+      const e=document.getElementById(`qo-${qi}-${oi}`);const c=document.getElementById(`qc-${qi}-${oi}`);
+      if(!e)return;
+      e.classList.remove('sel');
+      if(oi===q.a){e.classList.add('correct');c.textContent='✓';}
+      else if(oi===sel&&sel!==q.a){e.classList.add('wrong');c.textContent='✗';}
+    });
+    if(sel===q.a) correct++;
+  });
+  const pct=Math.round(correct/Q.qs.length*100);
+  if(!quizScores[activeQuizId]||pct>quizScores[activeQuizId]) quizScores[activeQuizId]=pct;
+  const all=Object.values(quizScores);
+  const avg=Math.round(all.reduce((a,b)=>a+b,0)/all.length);
+  document.getElementById('s-avg').textContent=avg+'%';
+  const pass=pct>=70;
+  const res=document.getElementById('quiz-res');
+  res.className='quiz-result show '+(pass?'pass':'fail');
+  let html=pass?`<strong>🏆 Excellent! ${correct}/${Q.qs.length} correct (${pct}%)</strong><br>Well done. Proceed to the next lesson.<br><br>`:
+    `<strong>📚 ${correct}/${Q.qs.length} correct (${pct}%).</strong> Review the lesson and retry before moving on.<br><br>`;
+  Q.qs.forEach((q,qi)=>{if(selAnswers[qi]!==q.a) html+=`<div class="exp-block"><strong style="font-size:10px;color:var(--red)">Q${qi+1} — Explanation:</strong><br><span style="font-size:12px;color:var(--text2)">${q.e}</span></div>`;});
+  res.innerHTML=html;
+  xp+=correct*30; updateXP();
+  toast(pass?'🏆':'📚', pass?`Passed! +${correct*30} XP`:'Review & retry');
+}
+
+// ═══════════════════════════════════════════════
+// CURRICULUM
+// ═══════════════════════════════════════════════
+const CURR = [
+  {level:1,color:'#1D9E75',tag:'BEGINNER',weeks:'4–6 weeks',ms:[
+    {n:'What is trading & how markets work',id:'intro'},{n:'Types of markets — Forex, Stocks, Crypto, Indices',id:'markets2'},
+    {n:'Reading charts & candlestick patterns',id:'charts'},{n:'Basic risk management',id:'riskbasics'},
+    {n:'Broker selection & trading platforms',id:'brokers'},{n:'Common beginner mistakes',id:'mistakes'},
+    {n:'Trading psychology fundamentals',id:'psychology'},{n:'Leverage & margin',id:'leverage'},
+  ]},
+  {level:2,color:'#185FA5',tag:'INTERMEDIATE',weeks:'6–10 weeks',ms:[
+    {n:'Technical analysis deep dive',id:'ta'},{n:'Market structure & trends',id:'structure'},
+    {n:'Support, resistance & price action',id:'sr'},{n:'Supply & demand zones',id:'sd'},
+    {n:'Indicators — RSI, MACD, MA, Bollinger Bands',id:'indicators'},{n:'Volume analysis',id:'volume'},
+    {n:'Trading styles — scalping, day, swing, position',id:'styles'},{n:'Fundamental analysis & macroeconomics',id:'fundamentals'},
+    {n:'Building a trading plan',id:'plan'},{n:'Journaling & performance review',id:'journaling'},
+  ]},
+  {level:3,color:'#C9A84C',tag:'ADVANCED',weeks:'8–12 weeks',ms:[
+    {n:'Smart money concepts (SMC) full breakdown',id:'smc'},{n:'ICT concepts — Inner Circle Trader methodology',id:'ict'},
+    {n:'Liquidity, stop hunts & order flow',id:'liquidity'},{n:'Order blocks & fair value gaps',id:'ob'},
+    {n:'How institutions trade',id:'institutions'},{n:'Futures & Options in depth',id:'futures'},
+    {n:'Correlation & hedging strategies',id:'correlation'},{n:'Advanced risk — hedge fund style',id:'advancedrisk'},
+    {n:'Backtesting step-by-step',id:'backtest'},{n:'Portfolio management',id:'portfolio'},
+  ]},
+  {level:4,color:'#993556',tag:'PROFESSIONAL',weeks:'12+ weeks',ms:[
+    {n:'Prop firm trading & passing challenges',id:'propfirm'},{n:'Professional mindset & discipline',id:'mindset'},
+    {n:'Building a complete trading system',id:'system'},{n:'Case studies — winning & losing trades',id:'casestudies'},
+    {n:'Live market analysis & refinement',id:'liveanalysis'},{n:'Avoiding scams & bad habits',id:'scams'},
+    {n:'Final assessment',id:'final'},
+  ]},
+];
+
+function renderCurr(){
+  document.getElementById('curr-list').innerHTML=CURR.map(lvl=>`
+    <div class="curr-level">
+      <div class="curr-lvl-hdr" style="border-left:3px solid ${lvl.color}">
+        <h3>LEVEL ${lvl.level} — ${lvl.tag}</h3>
+        <span class="muted" style="margin-left:auto">📅 ${lvl.weeks}</span>
+      </div>
+      <div class="curr-modules">${lvl.ms.map((m,i)=>`<div class="curr-mod" onclick="renderLesson('${m.id}')">
+        <span class="mono" style="color:${lvl.color};font-size:10px">${String(i+1).padStart(2,'0')}</span>${m.n}
+        ${completedLessons.has(m.id)?'<span class="sbadge done" style="margin-left:auto">✓</span>':''}
+      </div>`).join('')}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// PROGRESS LIST (dashboard)
+// ═══════════════════════════════════════════════
+function renderProgList(){
+  const items=[
+    {id:'intro',n:'What is trading?',done:true},
+    {id:'markets2',n:'Types of markets',done:completedLessons.has('markets2')},
+    {id:'charts',n:'Reading charts',done:completedLessons.has('charts')},
+    {id:'riskbasics',n:'Basic risk management',done:completedLessons.has('riskbasics')},
+    {id:'psychology',n:'Trading psychology',done:completedLessons.has('psychology')},
+    {id:'leverage',n:'Leverage & margin',done:completedLessons.has('leverage')},
+  ];
+  document.getElementById('prog-list').innerHTML=items.map(item=>`
+    <div class="prog-row">
+      <div class="prog-icon" style="background:${item.done?'rgba(46,204,142,.15)':'rgba(90,90,106,.2)'};color:${item.done?'var(--green)':'var(--text3)'}">${item.done?'✓':'·'}</div>
+      <div class="prog-name">${item.n}</div>
+      <div class="prog-bar-wrap"><div class="prog-bar-fill" style="width:${item.done?'100':'0'}%;background:${item.done?'var(--green)':'var(--gold)'}"></div></div>
+      <div class="prog-pct" style="${item.done?'color:var(--green)':''}">${item.done?'100':'0'}%</div>
+    </div>`).join('');
+  const done=items.filter(i=>i.done).length;
+  document.getElementById('s-done').textContent=done;
+}
+
+// ═══════════════════════════════════════════════
+// GLOSSARY
+// ═══════════════════════════════════════════════
+const GLOSSARY=[
+  {t:'Pip',d:'Smallest price increment. EUR/USD 1.0850→1.0851 = 1 pip. The 4th decimal place for most pairs.'},
+  {t:'Spread',d:'Difference between buy (ask) and sell (bid) price. Your broker\'s transaction cost.'},
+  {t:'Leverage',d:'Borrowed capital. 1:100 = $100 controls $10,000. Amplifies both gains and losses.'},
+  {t:'Margin',d:'The deposit required to open/maintain a leveraged position. Returned when trade closes.'},
+  {t:'Long',d:'Buying an asset expecting price to rise. Bullish position. Profit when price goes up.'},
+  {t:'Short',d:'Selling borrowed asset expecting price to fall. Bearish. Profit when price drops.'},
+  {t:'Stop Loss (SL)',d:'Automatic order to close a losing trade at a set price. Every trade must have one.'},
+  {t:'Take Profit (TP)',d:'Automatic order to close a winning trade at your target. Lock in profits systematically.'},
+  {t:'Bull Market',d:'Sustained uptrend. Higher highs + higher lows. Buyers in control.'},
+  {t:'Bear Market',d:'Sustained downtrend. Lower highs + lower lows. Sellers in control.'},
+  {t:'Liquidity',d:'Concentration of buy/sell orders at a price level. Institutions hunt liquidity to fill large orders.'},
+  {t:'Order Block (OB)',d:'SMC: last opposing candle before an impulse move. Institutional orders were placed here. Key re-entry zone.'},
+  {t:'Fair Value Gap (FVG)',d:'ICT: 3-candle imbalance where price moved too fast, leaving an unfilled gap. Price usually fills it.'},
+  {t:'Break of Structure (BOS)',d:'Price breaches a previous swing high (bullish) or swing low (bearish) — confirms trend continuation.'},
+  {t:'Change of Character (ChoCH)',d:'First BOS against the prevailing trend. Earliest signal of a potential reversal.'},
+  {t:'Support',d:'Price level where buying pressure has historically prevented further decline.'},
+  {t:'Resistance',d:'Price level where selling pressure has historically prevented further rise.'},
+  {t:'Trend',d:'General direction of price. Uptrend = HH+HL. Downtrend = LH+LL. Range = flat.'},
+  {t:'Drawdown',d:'Peak-to-trough account decline. Key risk metric. Max drawdown = largest peak-to-trough in history.'},
+  {t:'Risk:Reward (R:R)',d:'Ratio of potential loss to potential gain. 1:2 = risk $1 to make $2.'},
+  {t:'Breakout',d:'Price moves decisively beyond a key support or resistance level, often with volume.'},
+  {t:'Confluence',d:'Multiple independent signals pointing to the same trade. More confluence = higher probability.'},
+  {t:'Scalping',d:'Trading style: very short trades (seconds–minutes) targeting small price moves. Expert level only.'},
+  {t:'Swing Trading',d:'Holding trades for days–weeks, targeting multi-day price swings. Best for beginners.'},
+  {t:'Position Trading',d:'Holding trades for weeks–months based on macro thesis. Least screen time required.'},
+  {t:'Prop Firm',d:'Company that funds traders with their capital after a challenge. Trader keeps 70–90% of profits.'},
+  {t:'Candlestick',d:'Chart element showing Open, High, Low, Close for a time period. Fundamental visual tool.'},
+  {t:'Moving Average (MA)',d:'Average price over N periods. 50 MA and 200 MA are major institutional reference levels.'},
+  {t:'RSI',d:'Relative Strength Index. Momentum oscillator 0–100. >70 = overbought, <30 = oversold.'},
+  {t:'MACD',d:'Moving Average Convergence Divergence. Shows trend direction and momentum shifts.'},
+  {t:'Volume',d:'Number of units traded in a period. High volume confirms price moves. Low volume = suspect.'},
+  {t:'Fibonacci',d:'Retracement levels (23.6%, 38.2%, 50%, 61.8%) used to find potential reversal zones in pullbacks.'},
+  {t:'Economic Calendar',d:'Schedule of high-impact news events (NFP, FOMC, CPI). Must be checked daily. Can spike markets 200+ pips.'},
+  {t:'Margin Call',d:'Broker automatically closes positions when account equity falls below required margin level.'},
+];
+
+function filterGloss(){
+  const s=(document.getElementById('gloss-search')?.value||'').toLowerCase();
+  const f=GLOSSARY.filter(g=>g.t.toLowerCase().includes(s)||g.d.toLowerCase().includes(s));
+  document.getElementById('gloss-grid').innerHTML=f.map(g=>`<div class="gloss-item"><div class="gloss-term">${g.t}</div><div class="gloss-def">${g.d}</div></div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// XP & PROGRESS
+// ═══════════════════════════════════════════════
+function updateXP(){
+  const max=2000, pct=Math.min(100,Math.round(xp/max*100));
+  document.getElementById('xp-lbl').textContent=`${xp} / ${max}`;
+  document.getElementById('pct-lbl').textContent=pct+'%';
+  document.getElementById('main-prog').style.width=pct+'%';
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+const PAGE_META = {
+  dashboard:{title:'Dashboard',crumb:'Overview'},
+  markets:{title:'Live Markets',crumb:'Markets'},
+  simulator:{title:'Trade Simulator',crumb:'Tools'},
+  curriculum:{title:'Curriculum',crumb:'Curriculum'},
+  lessons:{title:'Lessons',crumb:'Lessons'},
+  quiz:{title:'Quizzes',crumb:'Quizzes'},
+  riskcalc:{title:'Risk Calculator',crumb:'Tools'},
+  journal:{title:'Trade Journal',crumb:'Tools'},
+  glossary:{title:'Glossary',crumb:'Resources'},
+  calendar:{title:'Economic Calendar',crumb:'Resources'},
+};
+
+function navTo(page){
+  document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='none';});
+  const el=document.getElementById('page-'+page);
+  if(!el) return;
+  el.style.display='block';
+  requestAnimationFrame(()=>el.classList.add('active'));
+
+  document.querySelectorAll('.sitem[data-page]').forEach(i=>i.classList.remove('active'));
+  const si=document.querySelector(`.sitem[data-page="${page}"]`);
+  if(si) si.classList.add('active');
+
+  const m=PAGE_META[page]||{title:page,crumb:page};
+  document.getElementById('tb-title').textContent=m.title;
+  document.getElementById('tb-crumb').innerHTML=`Home › <span>${m.crumb}</span>`;
+
+  if(page==='markets'){renderMktGrid('crypto'); initTVChart('FX:EURUSD','EUR/USD');}  
+  if(page==='curriculum'){renderCurr();}
+  if(page==='glossary'){filterGloss();}
+  if(page==='riskcalc'){fillLivePrice();}
+  if(page==='simulator'){
+    loadSimChart(simState.sym, simState.tf);
+    const d=liveData[simState.sym];
+    if(d) document.getElementById('sim-live-price').textContent='$'+fmt(d.price);
+  }
+  if(window.innerWidth<900) toggleSB(false);
+}
+
+function toggleSB(force){
+  const sb=document.getElementById('sidebar'),ov=document.getElementById('overlay');
+  const open=force!==undefined?force:!sb.classList.contains('open');
+  sb.classList.toggle('open',open); ov.classList.toggle('open',open);
+}
+
+// ═══════════════════════════════════════════════
+// EVENT DELEGATION
+// ═══════════════════════════════════════════════
+document.addEventListener('click', e => {
+  const si=e.target.closest('.sitem[data-page]');
+  if(si){navTo(si.dataset.page);return;}
+  const sl=e.target.closest('.sitem[data-lesson]');
+  if(sl){renderLesson(sl.dataset.lesson);return;}
+  const mt=e.target.closest('[data-mktab]');
+  if(mt){document.querySelectorAll('[data-mktab]').forEach(t=>t.classList.remove('active'));mt.classList.add('active');renderMktGrid(mt.dataset.mktab);return;}
+  const tf=e.target.closest('[data-tf]');
+  if(tf){const sym=tf.dataset.sym||'BTCUSDT';loadChart(sym,tf.dataset.tf,tf);return;}
+  const stf=e.target.closest('[data-simtf]');
+  if(stf){document.querySelectorAll('[data-simtf]').forEach(t=>t.classList.remove('active'));stf.classList.add('active');simState.tf=stf.dataset.simtf;loadSimChart(simState.sym,simState.tf);return;}
+  const st=e.target.closest('[data-simtab]');
+  if(st){document.querySelectorAll('[data-simtab]').forEach(t=>t.classList.remove('active'));st.classList.add('active');simState.sym=st.dataset.simtab;document.getElementById('sim-chart-label').textContent=simState.sym.replace('USDT','/USDT')+' — Simulator';loadSimChart(simState.sym,simState.tf);return;}
+  const qt=e.target.closest('[data-qtab]');
+  if(qt){document.querySelectorAll('[data-qtab]').forEach(t=>t.classList.remove('active'));qt.classList.add('active');activeQuizId=qt.dataset.qtab;renderQuiz();return;}
+});
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+let toastTimer;
+function toast(icon,msg){
+  clearTimeout(toastTimer);
+  document.getElementById('t-icon').textContent=icon;
+  document.getElementById('t-msg').textContent=msg;
+  const el=document.getElementById('toast');
+  el.classList.add('show');
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+document.getElementById('j-date').value=new Date().toISOString().split('T')[0];
+filterGloss();
+renderProgList();
+renderQuiz();
+navTo('dashboard');
+initUserGreeting();
+
+// Load cloud data
+loadProgressFromCloud();
+loadJournalFromCloud();
+
+// Fetch live data
+fetchAll();
+setInterval(fetchAll, 15000);
+setInterval(()=>{if(simState.position) updateSimPnl();}, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+
+TRADEFORGE DEPLOY GUIDE
+
+1. Upload backend folder to Render
+2. Use your Render URL:
+   https://tradeforge-9j8p.onrender.com
+
+3. Upload ONLY the frontend folder to Vercel
+
+4. Done
+
+Important:
+- Root directory on Vercel must be: frontend
+- config.js is already configured
