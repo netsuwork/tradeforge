@@ -1,8 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
 
   <title>TradeForge Dashboard</title>
 
@@ -20,6 +26,7 @@
     body {
       background: #0f172a;
       color: white;
+      display: flex;
     }
 
     .sidebar {
@@ -30,6 +37,7 @@
       left: 0;
       top: 0;
       padding: 30px 20px;
+      overflow-y: auto;
     }
 
     .logo {
@@ -41,11 +49,12 @@
 
     .menu-item {
       padding: 15px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       background: #334155;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
       transition: 0.2s;
+      font-size: 15px;
     }
 
     .menu-item:hover {
@@ -54,6 +63,7 @@
 
     .main {
       margin-left: 250px;
+      width: calc(100% - 250px);
       padding: 40px;
     }
 
@@ -62,47 +72,79 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 40px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .topbar h1 {
+      font-size: 38px;
+      margin-bottom: 10px;
+    }
+
+    .topbar p {
+      color: #94a3b8;
     }
 
     .user-box {
       background: #1e293b;
       padding: 15px 20px;
       border-radius: 12px;
+      text-align: right;
     }
 
     .logout-btn {
+      margin-top: 10px;
+      width: 100%;
       background: #ef4444;
       border: none;
       color: white;
-      padding: 12px 18px;
+      padding: 12px;
       border-radius: 10px;
       cursor: pointer;
       font-size: 14px;
     }
 
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
+    .lesson-page {
+      max-width: 1100px;
     }
 
-    .card {
-      background: #1e293b;
-      padding: 25px;
-      border-radius: 20px;
-    }
-
-    .card h2 {
-      margin-bottom: 15px;
+    .lesson-title {
+      font-size: 42px;
+      margin-bottom: 30px;
       color: #3b82f6;
     }
 
-    .card p {
+    .lesson-card {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 20px;
+      margin-bottom: 25px;
+    }
+
+    .lesson-card h2 {
+      margin-bottom: 20px;
+      color: #3b82f6;
+    }
+
+    .lesson-card p,
+    .lesson-card li {
       color: #cbd5e1;
-      line-height: 1.6;
+      line-height: 1.8;
+      font-size: 17px;
+    }
+
+    .lesson-card ul {
+      padding-left: 20px;
+    }
+
+    .chart-box {
+      margin-top: 30px;
+      border-radius: 20px;
+      overflow: hidden;
     }
 
   </style>
+
 </head>
 
 <body>
@@ -115,28 +157,60 @@
       TradeForge
     </div>
 
-    <div class="menu-item">
-      📚 Forex Basics
+    <div
+      class="menu-item"
+      onclick="loadLesson('basics')"
+    >
+      📘 Forex Basics
     </div>
 
-    <div class="menu-item">
-      📈 Live Charts
+    <div
+      class="menu-item"
+      onclick="loadLesson('pairs')"
+    >
+      💱 Currency Pairs
     </div>
 
-    <div class="menu-item">
-      💰 Trading Simulator
+    <div
+      class="menu-item"
+      onclick="loadLesson('candles')"
+    >
+      🕯 Candlestick Patterns
     </div>
 
-    <div class="menu-item">
-      📰 Market News
+    <div
+      class="menu-item"
+      onclick="loadLesson('risk')"
+    >
+      🛡 Risk Management
     </div>
 
-    <div class="menu-item">
-      🧠 Psychology
+    <div
+      class="menu-item"
+      onclick="loadLesson('psychology')"
+    >
+      🧠 Trading Psychology
     </div>
 
-    <div class="menu-item">
+    <div
+      class="menu-item"
+      onclick="loadLesson('strategy')"
+    >
+      📈 Trading Strategies
+    </div>
+
+    <div
+      class="menu-item"
+      onclick="loadLesson('calendar')"
+    >
       📅 Economic Calendar
+    </div>
+
+    <div
+      class="menu-item"
+      onclick="loadLesson('charts')"
+    >
+      📊 Live Forex Charts
     </div>
 
   </div>
@@ -148,6 +222,7 @@
     <div class="topbar">
 
       <div>
+
         <h1>
           Welcome to TradeForge
         </h1>
@@ -155,15 +230,17 @@
         <p>
           Learn Forex From Zero To Expert
         </p>
+
       </div>
 
       <div>
 
-        <div class="user-box" id="user-info">
+        <div
+          class="user-box"
+          id="user-info"
+        >
           Loading...
         </div>
-
-        <br>
 
         <button
           class="logout-btn"
@@ -176,58 +253,73 @@
 
     </div>
 
-    <!-- CARDS -->
+    <!-- CONTENT -->
 
-    <div class="cards">
+    <div id="content-area">
 
-      <div class="card">
-        <h2>Forex Beginner Course</h2>
+      <div class="lesson-page">
 
-        <p>
-          Learn what Forex is, how currency pairs work,
-          pips, lots, leverage, spreads and trading sessions.
-        </p>
-      </div>
+        <h1 class="lesson-title">
+          Forex Basics
+        </h1>
 
-     <div class="card">
+        <div class="lesson-card">
 
-  <h2>Live Forex Chart</h2>
+          <h2>
+            What Is Forex?
+          </h2>
 
-  <div
-    class="tradingview-widget-container"
-    style="height:500px;"
-  >
+          <p>
+            Forex (Foreign Exchange) is the global market where currencies are traded.
+          </p>
 
-    <div
-      id="tradingview_chart"
-      style="height:100%;"
-    ></div>
+          <p>
+            Traders buy and sell currencies to profit from price movements.
+          </p>
 
-  </div>
+        </div>
 
-</div>
+        <div class="lesson-card">
 
-      <div class="card">
-        <h2>Risk Management</h2>
+          <h2>
+            Major Currency Pairs
+          </h2>
 
-        <p>
-          Learn how professionals protect capital and
-          survive long-term in the markets.
-        </p>
-      </div>
+          <ul>
+            <li>EUR/USD</li>
+            <li>GBP/USD</li>
+            <li>USD/JPY</li>
+            <li>USD/CHF</li>
+          </ul>
 
-      <div class="card">
-        <h2>Trading Psychology</h2>
+        </div>
 
-        <p>
-          Master emotions, discipline and mindset to
-          become a profitable trader.
-        </p>
+        <div class="lesson-card">
+
+          <h2>
+            What Is A Pip?
+          </h2>
+
+          <p>
+            A pip is the smallest price movement in forex pairs.
+          </p>
+
+        </div>
+
       </div>
 
     </div>
 
   </div>
+
+  <!-- TRADINGVIEW -->
+
+  <script
+    type="text/javascript"
+    src="https://s3.tradingview.com/tv.js"
+  ></script>
+
+  <!-- MAIN SCRIPT -->
 
   <script>
 
@@ -297,32 +389,289 @@
       window.location.href = 'index.html';
     }
 
+    // ======================
+    // LESSONS
+    // ======================
+
+    function loadLesson(type) {
+
+      const content = document.getElementById('content-area');
+
+      // BASICS
+
+      if (type === 'basics') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Forex Basics
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>What Is Forex?</h2>
+
+              <p>
+                Forex is the largest financial market in the world where currencies are traded.
+              </p>
+
+            </div>
+
+            <div class="lesson-card">
+
+              <h2>Trading Sessions</h2>
+
+              <p>
+                Main sessions:
+              </p>
+
+              <ul>
+                <li>London</li>
+                <li>New York</li>
+                <li>Tokyo</li>
+                <li>Sydney</li>
+              </ul>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // PAIRS
+
+      else if (type === 'pairs') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Currency Pairs
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>Major Pairs</h2>
+
+              <ul>
+                <li>EUR/USD</li>
+                <li>GBP/USD</li>
+                <li>USD/JPY</li>
+                <li>USD/CHF</li>
+              </ul>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // CANDLES
+
+      else if (type === 'candles') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Candlestick Patterns
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>Bullish Engulfing</h2>
+
+              <p>
+                Signals possible upward momentum.
+              </p>
+
+            </div>
+
+            <div class="lesson-card">
+
+              <h2>Bearish Engulfing</h2>
+
+              <p>
+                Signals possible downward momentum.
+              </p>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // RISK
+
+      else if (type === 'risk') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Risk Management
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>The 1% Rule</h2>
+
+              <p>
+                Never risk more than 1% of your account per trade.
+              </p>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // PSYCHOLOGY
+
+      else if (type === 'psychology') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Trading Psychology
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>Control Emotions</h2>
+
+              <p>
+                Fear and greed destroy traders. Discipline builds consistency.
+              </p>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // STRATEGY
+
+      else if (type === 'strategy') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Trading Strategies
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>Trend Following</h2>
+
+              <p>
+                Trade with the overall market direction.
+              </p>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // CALENDAR
+
+      else if (type === 'calendar') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Economic Calendar
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>Important News Events</h2>
+
+              <ul>
+                <li>NFP</li>
+                <li>CPI</li>
+                <li>FOMC</li>
+                <li>Interest Rate Decisions</li>
+              </ul>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // CHARTS
+
+      else if (type === 'charts') {
+
+        content.innerHTML = `
+
+          <div class="lesson-page">
+
+            <h1 class="lesson-title">
+              Live Forex Charts
+            </h1>
+
+            <div class="lesson-card">
+
+              <h2>EUR/USD Live Chart</h2>
+
+              <div
+                id="tradingview_chart"
+                class="chart-box"
+                style="height:500px;"
+              ></div>
+
+            </div>
+
+          </div>
+
+        `;
+
+        setTimeout(() => {
+
+          new TradingView.widget({
+
+            "width": "100%",
+            "height": 500,
+            "symbol": "FX:EURUSD",
+            "interval": "15",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "toolbar_bg": "#0f172a",
+            "enable_publishing": false,
+            "allow_symbol_change": true,
+            "container_id": "tradingview_chart"
+
+          });
+
+        }, 100);
+      }
+    }
+
   </script>
-<script
-  type="text/javascript"
-  src="https://s3.tradingview.com/tv.js"
-></script>
 
-<script>
-
-new TradingView.widget({
-
-  "width": "100%",
-  "height": 500,
-  "symbol": "FX:EURUSD",
-  "interval": "15",
-  "timezone": "Etc/UTC",
-  "theme": "dark",
-  "style": "1",
-  "locale": "en",
-  "toolbar_bg": "#0f172a",
-  "enable_publishing": false,
-  "hide_top_toolbar": false,
-  "allow_symbol_change": true,
-  "container_id": "tradingview_chart"
-
-});
-
-</script>
 </body>
+
 </html>
