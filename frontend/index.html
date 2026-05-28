@@ -2,6 +2,96 @@
 <html lang="en">
 <head>
 <script src="config.js"></script>
+
+<script>
+const API = window.TRADEFORGE_API;
+
+// =========================
+// SIGNUP
+// =========================
+
+async function signup() {
+
+  const name = document.getElementById('signup-name').value;
+  const email = document.getElementById('signup-email').value;
+  const password = document.getElementById('signup-password').value;
+
+  try {
+
+    const response = await fetch(`${API}/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error || 'Signup failed');
+      return;
+    }
+
+    localStorage.setItem('token', data.token);
+
+    alert('Account created successfully');
+
+    window.location.href = 'app.html';
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert('Cannot connect to server. Please try again.');
+  }
+}
+
+// =========================
+// LOGIN
+// =========================
+
+async function login() {
+
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+
+  try {
+
+    const response = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        password
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error || 'Login failed');
+      return;
+    }
+
+    localStorage.setItem('token', data.token);
+
+    window.location.href = 'app.html';
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert('Cannot connect to server. Please try again.');
+  }
+}
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TradeForge Academy — Sign In</title>
