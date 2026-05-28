@@ -29,33 +29,23 @@ const pool = new Pool({
 });
 
 // ======================
-// TEST ROUTE
+// ROOT
 // ======================
 
 app.get('/', (req, res) => {
-  res.send('TradeForge API is running');
+  res.send('TradeForge API running');
 });
 
 // ======================
-// RESET DATABASE
+// CREATE TABLE
 // ======================
 
-async function resetDatabase() {
+async function initDB() {
 
   try {
 
-    console.log('Resetting database...');
-
-    // DELETE OLD TABLE COMPLETELY
     await pool.query(`
-      DROP TABLE IF EXISTS users CASCADE;
-    `);
-
-    console.log('Old users table deleted');
-
-    // CREATE NEW TABLE
-    await pool.query(`
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -64,16 +54,37 @@ async function resetDatabase() {
       );
     `);
 
-    console.log('New users table created');
+    console.log('Database ready');
 
   } catch (err) {
 
-    console.error('DATABASE RESET ERROR');
     console.error(err);
   }
 }
 
-resetDatabase();
+initDB();
+
+// ======================
+// RESET USERS
+// ======================
+
+app.get('/reset-users', async (req, res) => {
+
+  try {
+
+    await pool.query(`
+      DELETE FROM users;
+    `);
+
+    res.send('All users deleted');
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).send(err.message);
+  }
+});
 
 // ======================
 // SIGNUP
@@ -88,7 +99,7 @@ app.post('/signup', async (req, res) => {
     if (!name || !email || !password) {
 
       return res.status(400).json({
-        error: 'All fields are required'
+        error: 'All fields required'
       });
     }
 
@@ -136,7 +147,6 @@ app.post('/signup', async (req, res) => {
 
   } catch (err) {
 
-    console.error('SIGNUP ERROR');
     console.error(err);
 
     res.status(500).json({
@@ -169,12 +179,12 @@ app.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
-    const valid = await bcrypt.compare(
+    const validPassword = await bcrypt.compare(
       password,
       user.password
     );
 
-    if (!valid) {
+    if (!validPassword) {
 
       return res.status(400).json({
         error: 'Invalid credentials'
@@ -204,11 +214,62 @@ app.post('/login', async (req, res) => {
 
   } catch (err) {
 
-    console.error('LOGIN ERROR');
     console.error(err);
 
     res.status(500).json({
       error: err.message
+    });
+  }
+});
+
+// ======================
+// PROFILE
+// ======================
+
+app.get('/profile', async (req, res) => {
+
+  try {
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+
+      return res.status(401).json({
+        error: 'No token'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const result = await pool.query(
+      `
+      SELECT id, name, email
+      FROM users
+      WHERE id = $1
+      `,
+      [decoded.id]
+    );
+
+    if (result.rows.length === 0) {
+
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(401).json({
+      error: 'Invalid token'
     });
   }
 });
