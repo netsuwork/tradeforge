@@ -18,7 +18,14 @@ app.use(cors({
 app.use(express.json());
 
 // =========================
-// DATABASE CONNECTION
+// DEBUG ENV
+// =========================
+
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+
+// =========================
+// DATABASE
 // =========================
 
 const pool = new Pool({
@@ -58,33 +65,31 @@ async function initDB() {
 
   } catch (err) {
 
-    console.error('Database init error:', err);
+    console.error('DATABASE INIT ERROR:');
+    console.error(err);
   }
 }
 
 initDB();
 
 // =========================
-// SIGNUP ROUTE
+// SIGNUP
 // =========================
 
 app.post('/signup', async (req, res) => {
 
   try {
 
+    console.log('Signup request received');
+
     const { name, email, password } = req.body;
+
+    console.log(name, email);
 
     if (!name || !email || !password) {
 
       return res.status(400).json({
-        error: 'All fields are required'
-      });
-    }
-
-    if (password.length < 6) {
-
-      return res.status(400).json({
-        error: 'Password must be at least 6 characters'
+        error: 'All fields required'
       });
     }
 
@@ -128,16 +133,17 @@ app.post('/signup', async (req, res) => {
 
   } catch (err) {
 
+    console.error('SIGNUP ERROR:');
     console.error(err);
 
     res.status(500).json({
-      error: 'Server error'
+      error: err.message
     });
   }
 });
 
 // =========================
-// LOGIN ROUTE
+// LOGIN
 // =========================
 
 app.post('/login', async (req, res) => {
@@ -145,13 +151,6 @@ app.post('/login', async (req, res) => {
   try {
 
     const { email, password } = req.body;
-
-    if (!email || !password) {
-
-      return res.status(400).json({
-        error: 'Email and password required'
-      });
-    }
 
     const result = await pool.query(
       'SELECT * FROM users WHERE email = $1',
@@ -202,71 +201,11 @@ app.post('/login', async (req, res) => {
 
   } catch (err) {
 
+    console.error('LOGIN ERROR:');
     console.error(err);
 
     res.status(500).json({
-      error: 'Server error'
-    });
-  }
-});
-
-// =========================
-// AUTH MIDDLEWARE
-// =========================
-
-function authMiddleware(req, res, next) {
-
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-
-    return res.status(401).json({
-      error: 'No token provided'
-    });
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-
-    req.user = decoded;
-
-    next();
-
-  } catch (err) {
-
-    return res.status(401).json({
-      error: 'Invalid token'
-    });
-  }
-}
-
-// =========================
-// PROFILE ROUTE
-// =========================
-
-app.get('/profile', authMiddleware, async (req, res) => {
-
-  try {
-
-    const result = await pool.query(
-      'SELECT id, name, email FROM users WHERE id = $1',
-      [req.user.id]
-    );
-
-    res.json(result.rows[0]);
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({
-      error: 'Server error'
+      error: err.message
     });
   }
 });
