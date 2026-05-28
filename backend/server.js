@@ -1,10 +1,15 @@
 const express = require('express');
 const cors = require('cors');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+require('dotenv').config();
 
 const app = express();
+
+// =========================
+// MIDDLEWARE
+// =========================
 
 app.use(cors());
 app.use(express.json());
@@ -29,7 +34,7 @@ app.get('/', (req, res) => {
 });
 
 // =========================
-// CREATE USERS TABLE
+// INIT DATABASE
 // =========================
 
 async function initDB() {
@@ -187,7 +192,7 @@ app.post('/login', async (req, res) => {
 });
 
 // =========================
-// VERIFY TOKEN MIDDLEWARE
+// AUTH MIDDLEWARE
 // =========================
 
 function authMiddleware(req, res, next) {
@@ -219,7 +224,7 @@ function authMiddleware(req, res, next) {
 }
 
 // =========================
-// PROTECTED ROUTE
+// PROFILE ROUTE
 // =========================
 
 app.get('/profile', authMiddleware, async (req, res) => {
