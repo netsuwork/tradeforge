@@ -1,80 +1,77 @@
+require('dotenv').config();
+
 const express = require('express');
-const cors = require('cors');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { Pool } = require('pg');
-require('dotenv').config();
+const cors = require('cors');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// ======================
-// DATABASE
-// ======================
+/* =========================
+   DATABASE
+========================= */
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+mongoose.connect(process.env.MONGO_URI)
+.then(() => {
+  console.log('MongoDB Connected');
+})
+.catch(err => {
+  console.error('MongoDB Error:', err.message);
 });
 
-// ======================
-// INIT DATABASE
-// ======================
+/* =========================
+   USER MODEL
+========================= */
 
-async function initDB() {
+const User = mongoose.model('User', new mongoose.Schema({
 
-  try {
+  name: {
+    type: String,
+    required: true
+  },
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255),
-        email VARCHAR(255) UNIQUE,
-        password VARCHAR(255),
-        xp INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
 
-    console.log('Database ready');
+  password: {
+    type: String,
+    required: true
+  },
 
-  } catch (err) {
+  xp: {
+    type: Number,
+    default: 0
+  },
 
-    console.error('DB ERROR:', err);
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
-}
 
-initDB();
+}));
 
-// ======================
-// ROOT
-// ======================
-
-app.get('/', (req, res) => {
-
-  res.send('TradeForge API running');
-});
-
-// ======================
-// AUTH MIDDLEWARE
-// ======================
+/* =========================
+   AUTH MIDDLEWARE
+========================= */
 
 function auth(req, res, next) {
 
+  const header = req.headers.authorization;
+
+  if (!header) {
+    return res.status(401).json({
+      error: 'No token'
+    });
+  }
+
   try {
-
-    const header = req.headers.authorization;
-
-    if (!header) {
-
-      return res.status(401).json({
-        error: 'No token'
-      });
-    }
 
     const token = header.split(' ')[1];
 
@@ -87,19 +84,30 @@ function auth(req, res, next) {
 
     next();
 
-  } catch (err) {
-
-    console.error('TOKEN ERROR:', err);
+  } catch {
 
     return res.status(401).json({
       error: 'Invalid token'
     });
+
   }
 }
 
-// ======================
-// SIGNUP
-// ======================
+/* =========================
+   ROOT
+========================= */
+
+app.get('/', (req, res) => {
+
+  res.json({
+    message: 'TradeForge API Running'
+  });
+
+});
+
+/* =========================
+   SIGNUP
+========================= */
 
 app.post('/signup', async (req, res) => {
 
@@ -107,60 +115,69 @@ app.post('/signup', async (req, res) => {
 
     const { name, email, password } = req.body;
 
-    const existing = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
+    const existing =
+      await User.findOne({ email });
 
-    if (existing.rows.length > 0) {
+    if (existing) {
 
       return res.status(400).json({
         error: 'Email already exists'
       });
+
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed =
+      await bcrypt.hash(password, 10);
 
-    const result = await pool.query(
-      `
-      INSERT INTO users (name, email, password)
-      VALUES ($1, $2, $3)
-      RETURNING id, name, email, xp
-      `,
-      [name, email, hashed]
-    );
+    const user = await User.create({
 
-    const user = result.rows[0];
+      name,
+      email,
+      password: hashed
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: '30d'
-      }
-    );
+    });
+
+    const token = jwt.sign({
+
+      id: user._id,
+      email: user.email
+
+    },
+
+    process.env.JWT_SECRET,
+
+    {
+
+      expiresIn: '30d'
+
+    });
 
     res.json({
+
       token,
-      user
+
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        xp: user.xp
+      }
+
     });
 
   } catch (err) {
 
-    console.error('SIGNUP ERROR:', err);
-
     res.status(500).json({
       error: err.message
     });
+
   }
+
 });
 
-// ======================
-// LOGIN
-// ======================
+/* =========================
+   LOGIN
+========================= */
 
 app.post('/login', async (req, res) => {
 
@@ -168,106 +185,149 @@ app.post('/login', async (req, res) => {
 
     const { email, password } = req.body;
 
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
+    const user =
+      await User.findOne({ email });
 
-    if (result.rows.length === 0) {
+    if (!user) {
 
       return res.status(400).json({
         error: 'Invalid credentials'
       });
+
     }
 
-    const user = result.rows[0];
-
-    const valid = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const valid =
+      await bcrypt.compare(
+        password,
+        user.password
+      );
 
     if (!valid) {
 
       return res.status(400).json({
         error: 'Invalid credentials'
       });
+
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: '30d'
-      }
-    );
+    const token = jwt.sign({
+
+      id: user._id,
+      email: user.email
+
+    },
+
+    process.env.JWT_SECRET,
+
+    {
+
+      expiresIn: '30d'
+
+    });
 
     res.json({
+
       token,
+
       user: {
-        id: user.id,
+        id: user._id,
         name: user.name,
         email: user.email,
         xp: user.xp
       }
+
     });
 
   } catch (err) {
 
-    console.error('LOGIN ERROR:', err);
-
     res.status(500).json({
       error: err.message
     });
+
   }
+
 });
 
-// ======================
-// PROFILE
-// ======================
+/* =========================
+   PROFILE
+========================= */
 
 app.get('/profile', auth, async (req, res) => {
 
   try {
 
-    const result = await pool.query(
-      `
-      SELECT id, name, email, xp
-      FROM users
-      WHERE id = $1
-      `,
-      [req.user.id]
-    );
+    const user =
+      await User.findById(
+        req.user.id
+      ).select('-password');
 
-    if (result.rows.length === 0) {
+    if (!user) {
 
       return res.status(404).json({
         error: 'User not found'
       });
+
     }
 
-    res.json(result.rows[0]);
+    res.json(user);
 
   } catch (err) {
-
-    console.error('PROFILE ERROR:', err);
 
     res.status(500).json({
       error: err.message
     });
+
   }
+
 });
 
-// ======================
-// SERVER
-// ======================
+/* =========================
+   ADD XP
+========================= */
 
-const PORT = process.env.PORT || 10000;
+app.post('/xp', auth, async (req, res) => {
+
+  try {
+
+    const amount =
+      Number(req.body.amount || 0);
+
+    const user =
+      await User.findById(
+        req.user.id
+      );
+
+    user.xp += amount;
+
+    await user.save();
+
+    res.json({
+
+      xp: user.xp
+
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+/* =========================
+   SERVER
+========================= */
+
+const PORT =
+  process.env.PORT || 10000;
 
 app.listen(PORT, () => {
 
-  console.log(`Server running on port ${PORT}`);
+  console.log(
+    `Server running on port ${PORT}`
+  );
+
 });
